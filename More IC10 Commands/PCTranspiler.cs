@@ -3,7 +3,7 @@ using HarmonyLib;
 using System.Reflection;
 using System.Reflection.Emit;
 
-namespace More_IC10_Commands
+namespace IC10_Extender
 {
     [HarmonyPatch(typeof(ProgrammableChip._LineOfCode))]
     [HarmonyPatch(new Type[]{typeof(ProgrammableChip), typeof(string), typeof(int)})]
@@ -24,7 +24,7 @@ namespace More_IC10_Commands
             insert.Add(new CodeInstruction(OpCodes.Ldarg_2));
             insert.Add(new CodeInstruction(OpCodes.Ldarg_3));
             insert.Add(new CodeInstruction(OpCodes.Ldloca_S, 4));
-            insert.Add(CodeInstruction.Call(typeof(Core), "LoadExtension"));
+            insert.Add(CodeInstruction.Call(typeof(IC10Extender), "LoadExtension"));
             insert.Add(new CodeInstruction(OpCodes.Stloc, ext.LocalIndex));
             insert.Add(new CodeInstruction(OpCodes.Ldloc, ext.LocalIndex));
             insert.Add(new CodeInstruction(OpCodes.Brfalse, normal));

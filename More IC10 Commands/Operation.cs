@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace More_IC10_Commands
+namespace IC10_Extender
 {
     public abstract class Operation
     {

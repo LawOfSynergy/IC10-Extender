@@ -1,4 +1,4 @@
-# Setup
+# Setting up this workspace
 
 This mod involves transpiling the ProgrammableChip class, most of whose internals are private. So in order to 
 be able to access the internal classes, we have to first generate a publicized version of the dll. This dll 

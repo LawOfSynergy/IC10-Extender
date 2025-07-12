@@ -4,6 +4,7 @@ using BepInEx;
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using static Assets.Scripts.Objects.Electrical.ProgrammableChipException;
 
 namespace IC10_Extender
@@ -21,11 +22,23 @@ namespace IC10_Extender
             Log("Loading Mod");
             try
             {
-                    Log("Loading Harmony Patches");
+                Log("Loading Harmony Patches");
                 //    Harmony.DEBUG = true;
-                    var harmony = new Harmony("com.lawofsynergy.stationeers.ic10e");
-                    harmony.PatchAll();
-                    Log("Patch succeeded");
+                var harmony = new Harmony("com.lawofsynergy.stationeers.ic10e");
+                //var tmp = typeof(ProgrammableChip).GetNestedTypes(BindingFlags.NonPublic)
+                var targetClass = typeof(ProgrammableChip).GetNestedType("_LineOfCode", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                var target = targetClass.GetConstructor(BindingFlags.Public | BindingFlags.Instance, null, new Type[] { typeof(ProgrammableChip), typeof(string), typeof(int) }, null);
+                var transpiler = typeof(PCTranspiler).GetMethod("Transpile");
+                Log($"Target Class: {targetClass?.Name ?? "null"}\nTarget: {target?.ToString() ?? "null"}\nTranspiler: {transpiler?.ToString() ?? "null"}");
+
+                harmony.Patch(
+                    target,
+                    null,
+                    null,
+                    new HarmonyMethod(transpiler)
+                );
+                harmony.PatchAll();
+                Log("Patch succeeded");
             }
             catch (Exception e)
             {

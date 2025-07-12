@@ -7,14 +7,14 @@ using System.Reflection.Emit;
 
 namespace IC10_Extender
 {
-    [HarmonyPatch(typeof(ProgrammableChip._LineOfCode))]
-    [HarmonyPatch(new Type[]{typeof(ProgrammableChip), typeof(string), typeof(int)})]
+    //[HarmonyPatch(typeof(ProgrammableChip._LineOfCode))]
+    //[HarmonyPatch(new Type[]{typeof(ProgrammableChip), typeof(string), typeof(int)})]
     public class PCTranspiler
     {
         
 
         [HarmonyTranspiler]
-        static List<CodeInstruction> Transpile(IEnumerable<CodeInstruction> instructions, ILGenerator generator, MethodBase original)
+        public static List<CodeInstruction> Transpile(IEnumerable<CodeInstruction> instructions, ILGenerator generator, MethodBase original)
         {
             List<CodeInstruction> insert = new List<CodeInstruction>();
             Label normal = generator.DefineLabel();
@@ -43,7 +43,7 @@ namespace IC10_Extender
                 .Repeat(cm =>
                 {
                     count++;
-                    if (count == 2)
+                    if (count == 3)
                     {
                         cm.Advance(3);
                         cm.RemoveInstruction();

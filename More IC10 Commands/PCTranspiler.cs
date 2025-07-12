@@ -50,11 +50,11 @@ namespace IC10_Extender
                         cm.Insert(new CodeInstruction[] { new CodeInstruction(OpCodes.Bne_Un_S, extended) });
                         cm.Advance(6);
                         cm.RemoveInstruction();
-                        cm.Insert(new CodeInstruction[] { new CodeInstruction(OpCodes.Bne_Un_S, extended) });
+                        cm.Insert(new CodeInstruction[] { new CodeInstruction(OpCodes.Blt_S, extended) });
                         cm.Advance(12);
                         cm.RemoveInstruction();
                         cm.Insert(new CodeInstruction[] { new CodeInstruction(OpCodes.Bne_Un_S, extended) });
-                        cm.Advance(34);
+                        cm.Advance(33);
                         cm.Insert(insert);
                         cm.Advance(insert.Count);
                         cm.AddLabels(new List<Label>() { normal });

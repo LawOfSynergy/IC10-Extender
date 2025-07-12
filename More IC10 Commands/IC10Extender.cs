@@ -2,6 +2,7 @@
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
+using HarmonyLib.Tools;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -33,6 +34,7 @@ namespace IC10_Extender
                 var target = targetClass.GetConstructor(BindingFlags.Public | BindingFlags.Instance, null, new Type[] { typeof(ProgrammableChip), typeof(string), typeof(int) }, null);
                 var transpiler = typeof(PCTranspiler).GetMethod("Transpile");
                 Log($"Target Class: {targetClass?.Name ?? "null"}\nTarget: {target?.ToString() ?? "null"}\nTranspiler: {transpiler?.ToString() ?? "null"}");
+                HarmonyFileLog.Enabled = true;
                 harmony.Patch(
                     target,
                     null,

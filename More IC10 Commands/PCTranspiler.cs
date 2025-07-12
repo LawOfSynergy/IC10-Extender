@@ -11,9 +11,6 @@ namespace IC10_Extender
     //[HarmonyPatch(new Type[]{typeof(ProgrammableChip), typeof(string), typeof(int)})]
     public class PCTranspiler
     {
-        
-
-        [HarmonyTranspiler]
         public static List<CodeInstruction> Transpile(IEnumerable<CodeInstruction> instructions, ILGenerator generator, MethodBase original)
         {
             List<CodeInstruction> insert = new List<CodeInstruction>();

@@ -2,17 +2,18 @@
 using BepInEx;
 
 using HarmonyLib;
-using UnityEngine;
+using System;
+using System.Collections.Generic;
 using static Assets.Scripts.Objects.Electrical.ProgrammableChipException;
 
 namespace IC10_Extender
 {
     [BepInPlugin("net.lawofsynergy.stationeers.ic10e", "IC10 Extender", "0.0.1.0")]
-    public class EntryPoint : BaseUnityPlugin
+    public class Plugin : BaseUnityPlugin
     {
         public void Log(string line)
         {
-            Debug.Log("[IC10Extender]: " + line);
+            Logger.LogInfo("[IC10Extender]: " + line);
         }
 
         void Awake()
@@ -20,11 +21,11 @@ namespace IC10_Extender
             Log("Loading Mod");
             try
             {
-                Log("Loading Harmony Patches");
-                Harmony.DEBUG = true;
-                var harmony = new Harmony("com.lawofsynergy.stationeers.ic10e");
-                harmony.PatchAll();
-                Log("Patch succeeded");
+                    Log("Loading Harmony Patches");
+                //    Harmony.DEBUG = true;
+                    var harmony = new Harmony("com.lawofsynergy.stationeers.ic10e");
+                    harmony.PatchAll();
+                    Log("Patch succeeded");
             }
             catch (Exception e)
             {
@@ -32,7 +33,7 @@ namespace IC10_Extender
                 Log(e.ToString());
             }
 
-            IC10Extender.Register(new ThrowOperation());
+            //IC10Extender.Register(new ThrowOperation());
         }
     }
 

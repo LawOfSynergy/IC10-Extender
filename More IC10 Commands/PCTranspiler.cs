@@ -1,5 +1,7 @@
 ﻿using Assets.Scripts.Objects.Electrical;
 using HarmonyLib;
+using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
 
@@ -37,7 +39,7 @@ namespace IC10_Extender
             var cm = new CodeMatcher(instructions, generator);
 
             var count = 0;
-            cm.MatchStartForward(CodeMatch.WithOpcodes(new HashSet<OpCode> { OpCodes.Ldlen }))
+            cm.MatchStartForward(new CodeMatch(OpCodes.Ldlen))
                 .Repeat(cm =>
                 {
                     count++;
@@ -59,6 +61,32 @@ namespace IC10_Extender
                     }
                 });
             return cm.Instructions();
+        }
+    }
+
+    public static class Extensions
+    {
+        public static FieldInfo? DeclaredField(this Type type, string name) {
+            if ((object)type == null)
+            {
+                FileLog.Debug("AccessTools.DeclaredField: type is null");
+                return null;
+            }
+
+            if (string.IsNullOrEmpty(name))
+            {
+                FileLog.Debug("AccessTools.DeclaredField: name is null/empty");
+                return null;
+            }
+            var allDeclared = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.GetField | BindingFlags.SetField | BindingFlags.GetProperty | BindingFlags.SetProperty | BindingFlags.DeclaredOnly;
+
+            FieldInfo? field = type.GetField(name, allDeclared);
+            if (field is null)
+            {
+                FileLog.Debug($"AccessTools.DeclaredField: Could not find field for type {type} and name {name}");
+            }
+
+            return field;
         }
     }
 }

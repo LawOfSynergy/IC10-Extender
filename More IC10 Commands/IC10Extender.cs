@@ -51,9 +51,9 @@ namespace IC10_Extender
             operations.Remove(op.OpCode);
         }
 
-        public static Operation.Instance? LoadExtension(ProgrammableChip chip, string lineOfCode, int lineNumber, string[] source)
+        public static Operation.Instance LoadExtension(ProgrammableChip chip, string lineOfCode, int lineNumber, string[] source)
         {
-            Operation? op = operations.TryGetValue(source[0], out Operation? value) ? value : null;
+            Operation op = operations.TryGetValue(source[0], out Operation value) ? value : null;
 
             if (op == null)
                 return null;

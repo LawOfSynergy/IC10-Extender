@@ -36,10 +36,10 @@ namespace IC10_Extender
             insert.Add(new CodeInstruction(OpCodes.Stfld, typeof(ProgrammableChip._LineOfCode).DeclaredField("LineOfCode")));
             insert.Add(new CodeInstruction(OpCodes.Ret));
 
-            var cm = new CodeMatcher(instructions, generator);
+            var cmatcher = new CodeMatcher(instructions, generator);
 
             var count = 0;
-            cm.MatchStartForward(new CodeMatch(OpCodes.Ldlen))
+            cmatcher.MatchStartForward(new CodeMatch(OpCodes.Ldlen))
                 .Repeat(cm =>
                 {
                     count++;
@@ -60,13 +60,13 @@ namespace IC10_Extender
                         cm.AddLabels(new List<Label>() { normal });
                     }
                 });
-            return cm.Instructions();
+            return cmatcher.Instructions();
         }
     }
 
     public static class Extensions
     {
-        public static FieldInfo? DeclaredField(this Type type, string name) {
+        public static FieldInfo DeclaredField(this Type type, string name) {
             if ((object)type == null)
             {
                 FileLog.Debug("AccessTools.DeclaredField: type is null");
@@ -80,7 +80,7 @@ namespace IC10_Extender
             }
             var allDeclared = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.GetField | BindingFlags.SetField | BindingFlags.GetProperty | BindingFlags.SetProperty | BindingFlags.DeclaredOnly;
 
-            FieldInfo? field = type.GetField(name, allDeclared);
+            FieldInfo field = type.GetField(name, allDeclared);
             if (field is null)
             {
                 FileLog.Debug($"AccessTools.DeclaredField: Could not find field for type {type} and name {name}");

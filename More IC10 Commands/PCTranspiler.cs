@@ -17,13 +17,16 @@ namespace IC10_Extender
             Label normal = generator.DefineLabel();
             Label extended = generator.DefineLabel();
             LocalBuilder ext = generator.DeclareLocal(typeof(ProgrammableChip._Operation));
+            var extMethod = typeof(IC10Extender).GetMethod("LoadExtension", BindingFlags.DeclaredOnly | BindingFlags.Static | BindingFlags.Public);
+
+            Plugin.Log($"Embedding Method: {extMethod}");
 
             insert.Add(new CodeInstruction(OpCodes.Ldarg_1));
             insert[0].labels.Add(extended);
             insert.Add(new CodeInstruction(OpCodes.Ldarg_2));
             insert.Add(new CodeInstruction(OpCodes.Ldarg_3));
             insert.Add(new CodeInstruction(OpCodes.Ldloca_S, 4));
-            insert.Add(CodeInstruction.Call(typeof(IC10Extender), "LoadExtension"));
+            insert.Add(new CodeInstruction(OpCodes.Call, extMethod));
             insert.Add(new CodeInstruction(OpCodes.Stloc, ext.LocalIndex));
             insert.Add(new CodeInstruction(OpCodes.Ldloc, ext.LocalIndex));
             insert.Add(new CodeInstruction(OpCodes.Brfalse, normal));
@@ -56,6 +59,7 @@ namespace IC10_Extender
                         cm.Advance(insert.Count);
                         cm.AddLabels(new List<Label>() { normal });
                     }
+                    cm.Advance(1);
                 });
             return cmatcher.Instructions();
         }

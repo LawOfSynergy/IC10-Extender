@@ -31,8 +31,8 @@ namespace IC10_Extender
                 var harmony = new Harmony("com.lawofsynergy.stationeers.ic10e");
                 HarmonyFileLog.Enabled = true;
 
-                //Transpilers.Execute(harmony);
-                
+                Transpilers.Execute(harmony);
+
                 harmony.PatchAll();
                 Logger.LogInfo("Patch succeeded");
             }

@@ -9,9 +9,20 @@ namespace IC10_Extender
 {
     //[HarmonyPatch(typeof(ProgrammableChip._LineOfCode))]
     //[HarmonyPatch(new Type[]{typeof(ProgrammableChip), typeof(string), typeof(int)})]
-    public class PCTranspiler
+    public class Transpilers
     {
-        public static List<CodeInstruction> Transpile(IEnumerable<CodeInstruction> instructions, ILGenerator generator, MethodBase original)
+        public static void Execute(Harmony harmony)
+        {
+            //ProgrammableChip._LineOfCode.<ctor>
+            harmony.Patch(
+                typeof(ProgrammableChip._LineOfCode).GetConstructor(BindingFlags.Public | BindingFlags.Instance, null, new Type[] { typeof(ProgrammableChip), typeof(string), typeof(int) }, null),
+                null,
+                null,
+                new HarmonyMethod(typeof(Transpilers).GetMethod("TranspileLineOfCode"), -1, null, null, true)
+            );
+        }
+
+        public static List<CodeInstruction> TranspileLineOfCode(IEnumerable<CodeInstruction> instructions, ILGenerator generator, MethodBase original)
         {
             List<CodeInstruction> insert = new List<CodeInstruction>();
             Label normal = generator.DefineLabel();
@@ -19,19 +30,19 @@ namespace IC10_Extender
             LocalBuilder ext = generator.DeclareLocal(typeof(ProgrammableChip._Operation));
             var extMethod = typeof(IC10Extender).GetMethod("LoadExtension", BindingFlags.DeclaredOnly | BindingFlags.Static | BindingFlags.Public);
 
-            Plugin.Log($"Embedding Method: {extMethod}");
-
             insert.Add(new CodeInstruction(OpCodes.Ldarg_1));
             insert[0].labels.Add(extended);
             insert.Add(new CodeInstruction(OpCodes.Ldarg_2));
             insert.Add(new CodeInstruction(OpCodes.Ldarg_3));
-            insert.Add(new CodeInstruction(OpCodes.Ldloca_S, 4));
+            insert.Add(new CodeInstruction(OpCodes.Ldloc_S, 4));
             insert.Add(new CodeInstruction(OpCodes.Call, extMethod));
             insert.Add(new CodeInstruction(OpCodes.Stloc, ext.LocalIndex));
             insert.Add(new CodeInstruction(OpCodes.Ldloc, ext.LocalIndex));
             insert.Add(new CodeInstruction(OpCodes.Brfalse, normal));
+            insert.Add(new CodeInstruction(OpCodes.Ldarg_0));
             insert.Add(new CodeInstruction(OpCodes.Ldloc, ext.LocalIndex));
             insert.Add(new CodeInstruction(OpCodes.Stfld, typeof(ProgrammableChip._LineOfCode).DeclaredField("Operation")));
+            insert.Add(new CodeInstruction(OpCodes.Ldarg_0));
             insert.Add(new CodeInstruction(OpCodes.Ldarg_2));
             insert.Add(new CodeInstruction(OpCodes.Stfld, typeof(ProgrammableChip._LineOfCode).DeclaredField("LineOfCode")));
             insert.Add(new CodeInstruction(OpCodes.Ret));

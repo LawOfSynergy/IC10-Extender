@@ -15,42 +15,34 @@ namespace IC10_Extender
     {
         public static new ManualLogSource Logger;
 
-        public static void Log(string line)
+        public static ManualLogSource GetLogger()
         {
-            Logger.LogInfo("[IC10Extender]: " + line);
+            return Logger;
         }
 
         void Awake()
         {
             Plugin.Logger = base.Logger;
 
-            Log("Loading Mod");
+            Logger.LogInfo("Loading Mod");
             try
             {
-                Log("Loading Harmony Patches");
+                Logger.LogInfo("Loading Harmony Patches");
                 var harmony = new Harmony("com.lawofsynergy.stationeers.ic10e");
-                //var tmp = typeof(ProgrammableChip).GetNestedTypes(BindingFlags.NonPublic)
-                var targetClass = typeof(ProgrammableChip).GetNestedType("_LineOfCode", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
-                var target = targetClass.GetConstructor(BindingFlags.Public | BindingFlags.Instance, null, new Type[] { typeof(ProgrammableChip), typeof(string), typeof(int) }, null);
-                var transpiler = typeof(PCTranspiler).GetMethod("Transpile");
-                Log($"Target Class: {targetClass?.Name ?? "null"}\nTarget: {target?.ToString() ?? "null"}\nTranspiler: {transpiler?.ToString() ?? "null"}");
                 HarmonyFileLog.Enabled = true;
-                harmony.Patch(
-                    target,
-                    null,
-                    null,
-                    new HarmonyMethod(transpiler, -1, null, null, true)
-                );
+
+                //Transpilers.Execute(harmony);
+                
                 harmony.PatchAll();
-                Log("Patch succeeded");
+                Logger.LogInfo("Patch succeeded");
             }
             catch (Exception e)
             {
-                Log("Patch Failed");
-                Log(e.ToString());
+                Logger.LogInfo("Patch Failed");
+                Logger.LogInfo(e.ToString());
             }
 
-            //IC10Extender.Register(new ThrowOperation());
+            IC10Extender.Register(new ThrowOperation());
         }
     }
 
@@ -70,22 +62,30 @@ namespace IC10_Extender
 
         public static Operation.Instance LoadExtension(ProgrammableChip chip, string lineOfCode, int lineNumber, string[] source)
         {
+            Plugin.Logger.LogInfo($"Loading operation for command `{source[0]}`");
             Operation op = operations.TryGetValue(source[0], out Operation value) ? value : null;
 
-            if (op == null)
+            if (op == null) {
+                Plugin.Logger.LogInfo("Operation not found. Reverting to vanilla lookup");
                 return null;
+            }
 
             if (source.Length != op.ArgCount)
             {
+                Plugin.Logger.LogInfo($"Operation found, but argument count mismatched. Received {source.Length}, expected {op.ArgCount}");
                 throw new ProgrammableChipException(ICExceptionType.IncorrectArgumentCount, lineNumber);
             }
+            Plugin.Logger.LogInfo($"Operation found.");
             return op.Create(chip, lineNumber, source);
         }
     }
 
     public class ThrowOperation : Operation
     {
-        public ThrowOperation() : base("t", 1) { }
+        protected ManualLogSource Logger;
+        public ThrowOperation() : base("error", 1) {
+            Logger = Plugin.GetLogger();
+        }
 
         public override Instance Create(ProgrammableChip chip, int lineNumber, string[] source)
         {
@@ -98,7 +98,7 @@ namespace IC10_Extender
 
             public override int Execute(int index)
             {
-                throw new ProgrammableChipException(ICExceptionType.None, _LineNumber);
+                throw new ProgrammableChipException(ICExceptionType.Unknown, _LineNumber);
             }
         }
     }

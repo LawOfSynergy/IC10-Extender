@@ -64,17 +64,14 @@ namespace IC10_Extender
 
         public static ProgrammableChip._Operation LoadOpCode(ProgrammableChip chip, string lineOfCode, int lineNumber, string[] source)
         {
-            Plugin.Logger.LogInfo($"Loading operation for command `{source[0]}`");
             ExtendedOpCode op = operations.TryGetValue(source[0], out ExtendedOpCode value) ? value : null;
 
             if (op == null) {
-                Plugin.Logger.LogInfo("Operation not found. Reverting to vanilla lookup");
                 return null;
             }
 
             op.Accept(lineNumber, source);
             
-            Plugin.Logger.LogInfo($"Operation found.");
             return op.Wrapped(chip, lineNumber, source);
         }
 
@@ -106,7 +103,7 @@ namespace IC10_Extender
             {
                 if (source.Length == 2)
                 {
-                    ErrorCode = new DoubleValueVariable(chip.chip, lineNumber, source[1], InstructionInclude.MaskDoubleValue);
+                    ErrorCode = new DoubleValueVariable(chip.chip, lineNumber, source[1], InstructionInclude.MaskDoubleValue, false);
                 }
             }
 

@@ -28,7 +28,7 @@ namespace IC10_Extender
             Label normal = generator.DefineLabel();
             Label extended = generator.DefineLabel();
             LocalBuilder ext = generator.DeclareLocal(typeof(ProgrammableChip._Operation));
-            var extMethod = typeof(IC10Extender).GetMethod("LoadExtension", BindingFlags.DeclaredOnly | BindingFlags.Static | BindingFlags.Public);
+            var extMethod = typeof(IC10Extender).GetMethod("LoadOpCode", BindingFlags.DeclaredOnly | BindingFlags.Static | BindingFlags.Public);
 
             insert.Add(new CodeInstruction(OpCodes.Ldarg_1));
             insert[0].labels.Add(extended);

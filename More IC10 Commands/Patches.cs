@@ -92,26 +92,36 @@ namespace IC10_Extender
 
         public static void HighlightSyntax(ref string masterString)
         {
-            string format = "<color={1}>{0}</color>";
-            masterString = masterString.TrimStart(out string prefix);
-            foreach (var opcode in IC10Extender.OpCodes.Values)
+            if (string.IsNullOrEmpty(masterString)) return;
+
+            var original = masterString;
+            try
             {
-                string name = opcode.OpCode;
-                int len = opcode.OpCode.Length;
-                if (masterString.Length >= len && masterString.Substring(0, len).Equals(name))
+                string format = "<color={1}>{0}</color>";
+                masterString = masterString.TrimStart(out string prefix);
+                foreach (var opcode in IC10Extender.OpCodes.Values)
                 {
-                    string copy = masterString;
-                    if (masterString.Length < name.Length + 1 || masterString[name.Length] == ' ')
+                    string name = opcode.OpCode;
+                    int len = opcode.OpCode.Length;
+                    if (masterString.Length >= len && masterString.Substring(0, len).Equals(name))
                     {
-                        
-                        int spaceCount = copy.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length - 1;
-                        string fragment = masterString.Substring(len, masterString.Length - len);
-                        masterString = $"{string.Format(format, name, opcode.Color())}{fragment.TrimEnd()} {opcode.CommandExample("darkgrey", spaceCount)}";
-                        break;
+                        string copy = masterString;
+                        if (masterString.Length < name.Length + 1 || masterString[name.Length] == ' ')
+                        {
+
+                            int spaceCount = copy.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length - 1;
+                            string fragment = masterString.Substring(len, masterString.Length - len);
+                            masterString = $"{string.Format(format, name, opcode.Color())}{fragment.TrimEnd()} {opcode.CommandExample("darkgrey", spaceCount)}";
+                            break;
+                        }
                     }
                 }
+                masterString = prefix + masterString;
+            }catch (Exception ex)
+            {
+                Plugin.Logger.LogError($"Encountered exception processing \"{original}\"\n{ex}");
+                masterString = original;
             }
-            masterString = prefix + masterString;
         }
     }
 

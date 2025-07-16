@@ -8,12 +8,16 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using static Assets.Scripts.Objects.Electrical.ProgrammableChipException;
+using static IC10_Extender.HelpString;
 
 namespace IC10_Extender
 {
     public class ThrowOperation : ExtendedOpCode
     {
         protected ManualLogSource Logger;
+
+        private static readonly HelpString[] Args = {INTEGER.Optional() };
+
         public ThrowOperation() : base("error")
         {
             Logger = Plugin.GetLogger();
@@ -27,6 +31,11 @@ namespace IC10_Extender
         public override Operation Create(ChipWrapper chip, int lineNumber, string[] source)
         {
             return new ThrowInstance(chip, lineNumber, source);
+        }
+
+        public override HelpString[] Params()
+        {
+            return Args;
         }
 
         public class ThrowInstance : Operation

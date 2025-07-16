@@ -125,4 +125,51 @@ namespace IC10_Extender
         public static implicit operator ProgrammableChip._AliasValue(AliasValue self) => new ProgrammableChip._AliasValue((ProgrammableChip._AliasTarget)self.Target, self.Index);
         public static implicit operator AliasValue(ProgrammableChip._AliasValue self) => new AliasValue((AliasTarget)self.Target, self.Index);
     }
+
+    public readonly struct HelpString
+    {
+        public static readonly HelpString STRING = new HelpString("str");
+        public static readonly HelpString DEVICE_INDEX = new HelpString("d?");
+        public static readonly HelpString REGISTER = new HelpString("r?");
+        public static readonly HelpString INTEGER = new HelpString("int");
+        public static readonly HelpString NUMBER = new HelpString("num");
+        public static readonly HelpString OR = new HelpString("|");
+        public static readonly HelpString LOGIC_TYPE = new HelpString("logicType");
+        public static readonly HelpString LOGIC_SLOT_TYPE = new HelpString("logicSlotType");
+        public static readonly HelpString BATCH_MODE = new HelpString("batchMode");
+        public static readonly HelpString DEVICE_HASH = new HelpString("deviceHash");
+        public static readonly HelpString NAME_HASH = new HelpString("NameHash");
+        public static readonly HelpString SLOT_INDEX = new HelpString("slotIndex");
+        public static readonly HelpString REAGENT_MODE = new HelpString("reagentMode");
+
+        private readonly string _string;
+
+        public HelpString(string str) => _string = str;
+
+        public HelpString(HelpString parent, string format)
+        {
+            _string = string.Format(format, parent._string);
+        }
+
+        public new string ToString() => _string;
+
+        public HelpString Var(string variable)
+        {
+            return new HelpString($"{variable}({_string})");
+        }
+
+        public HelpString Optional()
+        {
+            return new HelpString($"[{_string}]");
+        }
+
+        public static HelpString operator +(HelpString left, HelpString right)
+        {
+            return new HelpString(left._string + OR.ToString() + right._string);
+        }
+
+        public static implicit operator HelpString(ProgrammableChip.HelpString other) => new HelpString(other._string);
+        public static implicit operator ProgrammableChip.HelpString(HelpString other) => new ProgrammableChip.HelpString(other._string);
+        public static implicit operator string (HelpString other) => other._string;
+    }
 }

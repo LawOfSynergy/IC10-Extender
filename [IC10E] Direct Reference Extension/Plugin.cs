@@ -3,9 +3,10 @@ using Assets.Scripts.Objects.Motherboards;
 using Assets.Scripts.Objects.Pipes;
 using BepInEx;
 using IC10_Extender;
+using static IC10_Extender.HelpString;
 using System.ComponentModel;
 
-namespace _IC10E__Direct_Reference_Extension
+namespace IC10E__Direct_Reference_Extension
 {
     [BepInPlugin("net.lawofsynergy.stationeers.ic10e.dre", "[IC10E] Direct Reference Extensions", "0.0.1.0")]
     [BepInDependency("net.lawofsynergy.stationeers.ic10e")]
@@ -17,8 +18,14 @@ namespace _IC10E__Direct_Reference_Extension
         }
     }
 
+    public class Constants
+    {
+        public static readonly HelpString ID = (REGISTER + NUMBER).Var("id");
+    }
+
     public class LoadSlotByDirectReference : ExtendedOpCode
     {
+        private static readonly HelpString[] Args = { REGISTER, Constants.ID, SLOT_INDEX, LOGIC_SLOT_TYPE };
         public LoadSlotByDirectReference() : base("lsd") { }
 
         public override void Accept(int lineNumber, string[] source)
@@ -28,6 +35,11 @@ namespace _IC10E__Direct_Reference_Extension
         public override Operation Create(ChipWrapper chip, int lineNumber, string[] source)
         {
             return new LSDInstance(chip, lineNumber, source[1], source[2], source[3], source[4]);
+        }
+
+        public override HelpString[] Params()
+        {
+            return Args;
         }
 
         public class LSDInstance : Operation
@@ -62,6 +74,7 @@ namespace _IC10E__Direct_Reference_Extension
 
     public class SetSlotByDirectReference : ExtendedOpCode
     {
+        private static readonly HelpString[] Args = { Constants.ID, SLOT_INDEX, LOGIC_SLOT_TYPE, (REGISTER + NUMBER).Var("value") };
         public SetSlotByDirectReference() : base("ssd") { }
 
         public override void Accept(int lineNumber, string[] source)
@@ -71,6 +84,11 @@ namespace _IC10E__Direct_Reference_Extension
         public override Operation Create(ChipWrapper chip, int lineNumber, string[] source)
         {
             return new SSDInstance(chip, lineNumber, source[1], source[2], source[3], source[4]);
+        }
+
+        public override HelpString[] Params()
+        {
+            return Args;
         }
 
         public class SSDInstance : Operation
@@ -108,33 +126,38 @@ namespace _IC10E__Direct_Reference_Extension
         }
     }
 
-    public class PushDevicesInBatch : ExtendedOpCode
-    {
-        public PushDevicesInBatch() : base("pdb") { }
+    //public class PushDevicesInBatch : ExtendedOpCode
+    //{
+    //    public PushDevicesInBatch() : base("pdb") { }
 
-        public override void Accept(int lineNumber, string[] source)
-        {
-            throw new System.NotImplementedException();
-        }
+    //    public override void Accept(int lineNumber, string[] source)
+    //    {
+    //        throw new System.NotImplementedException();
+    //    }
 
-        public override Operation Create(ChipWrapper chip, int lineNumber, string[] source)
-        {
-            throw new System.NotImplementedException();
-        }
-    }
+    //    public override Operation Create(ChipWrapper chip, int lineNumber, string[] source)
+    //    {
+    //        throw new System.NotImplementedException();
+    //    }
 
-    public class PushDevicesInBatchByName : ExtendedOpCode
-    {
-        public PushDevicesInBatchByName() : base("pdbn") { }
+    //    public override HelpString[] Params()
+    //    {
+    //        throw new System.NotImplementedException();
+    //    }
+    //}
 
-        public override void Accept(int lineNumber, string[] source)
-        {
-            throw new System.NotImplementedException();
-        }
+    //public class PushDevicesInBatchByName : ExtendedOpCode
+    //{
+    //    public PushDevicesInBatchByName() : base("pdbn") { }
 
-        public override Operation Create(ChipWrapper chip, int lineNumber, string[] source)
-        {
-            throw new System.NotImplementedException();
-        }
-    }
+    //    public override void Accept(int lineNumber, string[] source)
+    //    {
+    //        throw new System.NotImplementedException();
+    //    }
+
+    //    public override Operation Create(ChipWrapper chip, int lineNumber, string[] source)
+    //    {
+    //        throw new System.NotImplementedException();
+    //    }
+    //}
 }

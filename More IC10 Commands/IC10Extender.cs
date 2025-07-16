@@ -1,13 +1,19 @@
-﻿using Assets.Scripts.Objects.Electrical;
+﻿using Assets.Scripts;
+using Assets.Scripts.Objects.Electrical;
 using Assets.Scripts.Objects.Motherboards;
 using Assets.Scripts.Objects.Pipes;
+using Assets.Scripts.UI;
+using Assets.Scripts.Util;
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
 using HarmonyLib.Tools;
+using Reagents;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text.RegularExpressions;
+using Util.Commands;
 using static Assets.Scripts.Objects.Electrical.ProgrammableChipException;
 
 namespace IC10_Extender

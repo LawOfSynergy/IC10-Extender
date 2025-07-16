@@ -1,6 +1,5 @@
 ﻿using Assets.Scripts;
 using Assets.Scripts.Objects.Electrical;
-using Assets.Scripts.UI;
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
@@ -9,7 +8,7 @@ using System.Reflection.Emit;
 
 namespace IC10_Extender
 {
-    
+
     public class Patches
     {
         private static readonly BindingFlags All = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
@@ -26,17 +25,10 @@ namespace IC10_Extender
                 .GetMethod("InjectOpCodeLoading", All);
             harmony.Patch(opCodeLoadingTarget, transpiler: new HarmonyMethod(opCodeLoadingTranspiler));
 
-            var highlightSyntaxTargetParamModifiers = new ParameterModifier(4);
-            highlightSyntaxTargetParamModifiers[0] = true;
-            highlightSyntaxTargetParamModifiers[1] = true;
-            highlightSyntaxTargetParamModifiers[2] = true;
             var highlightSyntaxTarget = typeof(Localization)
                 .GetMethod(
                     "ReplaceCommands",
-                    All//,
-                    //null,
-                    //new Type[] { typeof(string), typeof(List<string>), typeof(List<string>), typeof(EditorLineOfCode) },
-                    //new ParameterModifier[] { highlightSyntaxTargetParamModifiers }
+                    All
                 );
             var highlightSyntaxPostfix = typeof(Patches)
                 .GetMethod("HighlightSyntax", All);
@@ -44,9 +36,7 @@ namespace IC10_Extender
             harmony.Patch(highlightSyntaxTarget, postfix: new HarmonyMethod(highlightSyntaxPostfix));
         }
 
-        //[HarmonyTranspiler]
-        //[HarmonyPatch(typeof(ProgrammableChip._LineOfCode), MethodType.Constructor)]
-        //[HarmonyPatch()]
+
         public static List<CodeInstruction> InjectOpCodeLoading(IEnumerable<CodeInstruction> instructions, ILGenerator generator, MethodBase original)
         {
             List<CodeInstruction> insert = new List<CodeInstruction>();
@@ -100,16 +90,28 @@ namespace IC10_Extender
             return cmatcher.Instructions();
         }
 
-        //[HarmonyPostfix]
-        //[HarmonyPatch(typeof(Localization))]
-        //[HarmonyPatch(nameof(Localization.ReplaceCommands))]
-       public static void HighlightSyntax(ref string masterString)
+        public static void HighlightSyntax(ref string masterString)
         {
             string format = "<color={1}>{0}</color>";
+            masterString = masterString.TrimStart(out string prefix);
             foreach (var opcode in IC10Extender.OpCodes.Values)
             {
-                masterString = masterString.ReplaceWholeWord(opcode.OpCode, string.Format(format, (object)opcode.OpCode, (object)opcode.Color()));
+                string name = opcode.OpCode;
+                int len = opcode.OpCode.Length;
+                if (masterString.Length >= len && masterString.Substring(0, len).Equals(name))
+                {
+                    string copy = masterString;
+                    if (masterString.Length < name.Length + 1 || masterString[name.Length] == ' ')
+                    {
+                        
+                        int spaceCount = copy.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length - 1;
+                        string fragment = masterString.Substring(len, masterString.Length - len);
+                        masterString = $"{string.Format(format, name, opcode.Color())}{fragment.TrimEnd()} {opcode.CommandExample("darkgrey", spaceCount)}";
+                        break;
+                    }
+                }
             }
+            masterString = prefix + masterString;
         }
     }
 
@@ -136,6 +138,18 @@ namespace IC10_Extender
             }
 
             return field;
+        }
+
+        public static string[] Split(this string src, char separator, StringSplitOptions options)
+        {
+            return src.Split(new char[] {separator }, options);
+        }
+
+        public static string TrimStart(this string src, out string prefix)
+        {
+            var result = src.TrimStart();
+            prefix = src.Substring(0, src.IndexOf(result[0]));
+            return result;
         }
     }
 }

@@ -1,4 +1,6 @@
-﻿using Assets.Scripts.Objects.Electrical;
+﻿using Assets.Scripts;
+using Assets.Scripts.Objects.Electrical;
+using Assets.Scripts.UI;
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
@@ -7,22 +9,45 @@ using System.Reflection.Emit;
 
 namespace IC10_Extender
 {
-    //[HarmonyPatch(typeof(ProgrammableChip._LineOfCode))]
-    //[HarmonyPatch(new Type[]{typeof(ProgrammableChip), typeof(string), typeof(int)})]
-    public class Transpilers
+    
+    public class Patches
     {
-        public static void Execute(Harmony harmony)
+        private static readonly BindingFlags All = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+        public static void Apply(Harmony harmony)
         {
-            //ProgrammableChip._LineOfCode.<ctor>
-            harmony.Patch(
-                typeof(ProgrammableChip._LineOfCode).GetConstructor(BindingFlags.Public | BindingFlags.Instance, null, new Type[] { typeof(ProgrammableChip), typeof(string), typeof(int) }, null),
-                null,
-                null,
-                new HarmonyMethod(typeof(Transpilers).GetMethod("TranspileLineOfCode"), -1, null, null, true)
-            );
+            var opCodeLoadingTarget = typeof(ProgrammableChip._LineOfCode)
+                .GetConstructor(
+                    All,
+                    null,
+                    new Type[] { typeof(ProgrammableChip), typeof(string), typeof(int) },
+                    null
+                );
+            var opCodeLoadingTranspiler = typeof(Patches)
+                .GetMethod("InjectOpCodeLoading", All);
+            harmony.Patch(opCodeLoadingTarget, transpiler: new HarmonyMethod(opCodeLoadingTranspiler));
+
+            var highlightSyntaxTargetParamModifiers = new ParameterModifier(4);
+            highlightSyntaxTargetParamModifiers[0] = true;
+            highlightSyntaxTargetParamModifiers[1] = true;
+            highlightSyntaxTargetParamModifiers[2] = true;
+            var highlightSyntaxTarget = typeof(Localization)
+                .GetMethod(
+                    "ReplaceCommands",
+                    All//,
+                    //null,
+                    //new Type[] { typeof(string), typeof(List<string>), typeof(List<string>), typeof(EditorLineOfCode) },
+                    //new ParameterModifier[] { highlightSyntaxTargetParamModifiers }
+                );
+            var highlightSyntaxPostfix = typeof(Patches)
+                .GetMethod("HighlightSyntax", All);
+            Plugin.Logger.LogInfo($"target: {highlightSyntaxTarget}\npatch: {highlightSyntaxPostfix}");
+            harmony.Patch(highlightSyntaxTarget, postfix: new HarmonyMethod(highlightSyntaxPostfix));
         }
 
-        public static List<CodeInstruction> TranspileLineOfCode(IEnumerable<CodeInstruction> instructions, ILGenerator generator, MethodBase original)
+        //[HarmonyTranspiler]
+        //[HarmonyPatch(typeof(ProgrammableChip._LineOfCode), MethodType.Constructor)]
+        //[HarmonyPatch()]
+        public static List<CodeInstruction> InjectOpCodeLoading(IEnumerable<CodeInstruction> instructions, ILGenerator generator, MethodBase original)
         {
             List<CodeInstruction> insert = new List<CodeInstruction>();
             Label normal = generator.DefineLabel();
@@ -73,6 +98,18 @@ namespace IC10_Extender
                     cm.Advance(1);
                 });
             return cmatcher.Instructions();
+        }
+
+        //[HarmonyPostfix]
+        //[HarmonyPatch(typeof(Localization))]
+        //[HarmonyPatch(nameof(Localization.ReplaceCommands))]
+       public static void HighlightSyntax(ref string masterString)
+        {
+            string format = "<color={1}>{0}</color>";
+            foreach (var opcode in IC10Extender.OpCodes.Values)
+            {
+                masterString = masterString.ReplaceWholeWord(opcode.OpCode, string.Format(format, (object)opcode.OpCode, (object)opcode.Color()));
+            }
         }
     }
 

@@ -12,59 +12,25 @@ using static Assets.Scripts.Objects.Electrical.ProgrammableChipException;
 
 namespace IC10_Extender
 {
-    [BepInPlugin("net.lawofsynergy.stationeers.ic10e", "IC10 Extender", "0.0.1.0")]
-    public class Plugin : BaseUnityPlugin
-    {
-        public static new ManualLogSource Logger;
-
-        public static ManualLogSource GetLogger()
-        {
-            return Logger;
-        }
-
-        void Awake()
-        {
-            Plugin.Logger = base.Logger;
-
-            Logger.LogInfo("Loading Mod");
-            try
-            {
-                Logger.LogInfo("Loading Harmony Patches");
-                var harmony = new Harmony("com.lawofsynergy.stationeers.ic10e");
-                HarmonyFileLog.Enabled = true;
-
-                Transpilers.Execute(harmony);
-
-                harmony.PatchAll();
-                Logger.LogInfo("Patch succeeded");
-            }
-            catch (Exception e)
-            {
-                Logger.LogInfo("Patch Failed");
-                Logger.LogInfo(e.ToString());
-            }
-
-            IC10Extender.Register(new ThrowOperation());
-        }
-    }
-
     public class IC10Extender
     {
-        private static Dictionary<string, ExtendedOpCode> operations = new Dictionary<string, ExtendedOpCode>();
+        private static Dictionary<string, ExtendedOpCode> opcodes = new Dictionary<string, ExtendedOpCode>();
+
+        public static Dictionary<string, ExtendedOpCode> OpCodes => new Dictionary<string, ExtendedOpCode>(opcodes);
 
         public static void Register(ExtendedOpCode op)
         {
-            operations.Add(op.OpCode, op);
+            opcodes.Add(op.OpCode, op);
         }
 
         public static void Deregister(ExtendedOpCode op)
         {
-            operations.Remove(op.OpCode);
+            opcodes.Remove(op.OpCode);
         }
 
         public static ProgrammableChip._Operation LoadOpCode(ProgrammableChip chip, string lineOfCode, int lineNumber, string[] source)
         {
-            ExtendedOpCode op = operations.TryGetValue(source[0], out ExtendedOpCode value) ? value : null;
+            ExtendedOpCode op = opcodes.TryGetValue(source[0], out ExtendedOpCode value) ? value : null;
 
             if (op == null) {
                 return null;
@@ -72,56 +38,23 @@ namespace IC10_Extender
 
             op.Accept(lineNumber, source);
             
-            return op.Wrapped(chip, lineNumber, source);
+            return new OperationWrapper(op.Create(new ChipWrapper(chip), lineNumber, source));
         }
 
-        public static bool HasOpCode(string token) { return operations.ContainsKey(token); }
-    }
+        public static bool HasOpCode(string token) { return opcodes.ContainsKey(token); }
 
-    public class ThrowOperation : ExtendedOpCode
-    {
-        protected ManualLogSource Logger;
-        public ThrowOperation() : base("error") {
-            Logger = Plugin.GetLogger();
-        }
-
-        public override void Accept(int lineNumber, string[] source)
+        //private wrapper classes to transition between private internals and our public api
+        private class OperationWrapper : ProgrammableChip._Operation
         {
-            if (source.Length > 2) throw new ProgrammableChipException(ICExceptionType.IncorrectArgumentCount, lineNumber);
-        }
-
-        public override Operation Create(ChipWrapper chip, int lineNumber, string[] source)
-        {
-            return new ThrowInstance(chip, lineNumber, source);
-        }
-
-        public class ThrowInstance : Operation
-        {
-            protected readonly DoubleValueVariable ErrorCode;
-
-            public ThrowInstance(ChipWrapper chip, int lineNumber, string[] source) : base(chip, lineNumber)
+            private readonly Operation op;
+            public OperationWrapper(Operation op) : base(op.Chip.chip, op.LineNumber)
             {
-                if (source.Length == 2)
-                {
-                    ErrorCode = new DoubleValueVariable(chip.chip, lineNumber, source[1], InstructionInclude.MaskDoubleValue, false);
-                }
+                this.op = op;
             }
 
             public override int Execute(int index)
             {
-                if (ErrorCode != null)
-                {
-                    DeviceIndexVariable deviceIndex = new DeviceIndexVariable(Chip.chip, LineNumber, "db", InstructionInclude.MaskDeviceIndex, false);
-                    int selfIndex = deviceIndex.GetVariableIndex(AliasTarget.Device, true);
-                    ILogicable self = Chip.CircuitHousing.GetLogicableFromIndex(selfIndex, deviceIndex.GetNetworkIndex());
-                    double errorCode = ErrorCode.GetVariableValue(AliasTarget.Register);
-                    if (!self.CanLogicWrite(LogicType.Setting))
-                    {
-                        throw new ProgrammableChipException(ICExceptionType.IncorrectLogicType, LineNumber);
-                    }
-                    self.SetLogicValue(LogicType.Setting, errorCode);
-                }
-                throw new ProgrammableChipException(ICExceptionType.Unknown, LineNumber);
+                return op.Execute(index);
             }
         }
     }

@@ -21,3 +21,8 @@ Run `assembly-publicizer .\Assembly-CSharp.dll`
 
 This will create the file `Assembly-CSharp-publicized.dll`. Move this file into the publicized-dlls directory of 
 this project.
+
+# Acknowledgements
+Special thanks to tom_is_unlucky over on the stationeers modding discord for helping to debug the transpiler!
+
+And of course, thanks to the other lovely people on that discord who have been helpful in getting this where it is.

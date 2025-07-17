@@ -19,10 +19,11 @@ namespace IC10_Extender
         public abstract void Accept(int lineNumber, string[] source);
         public abstract Operation Create(ChipWrapper chip, int lineNumber, string[] source);
         /// <summary>
-        /// The help string for each parameter of this command in the order they appear (excluding the opcode itself)
+        /// The help string for each parameter of this command in the order they appear (excluding the opcode itself).
+        /// currentArgCount can be ignored unless you are dealing with varargs.
         /// </summary>
         /// <returns></returns>
-        public abstract HelpString[] Params();
+        public abstract HelpString[] Params(int currentArgCount);
         
         /// <summary>
         /// The color to use for syntax highlighting. 
@@ -35,7 +36,7 @@ namespace IC10_Extender
 
         public string CommandExample(string color, int spaceCount)
         {
-            var args = Params();
+            var args = Params(spaceCount);
             var result = "";
             for (int i = spaceCount; i < args.Length; i++)
             {

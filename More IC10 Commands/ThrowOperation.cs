@@ -30,19 +30,19 @@ namespace IC10_Extender
 
         public override Operation Create(ChipWrapper chip, int lineNumber, string[] source)
         {
-            return new ThrowInstance(chip, lineNumber, source);
+            return new Instance(chip, lineNumber, source);
         }
 
-        public override HelpString[] Params()
+        public override HelpString[] Params(int currentArgCount)
         {
             return Args;
         }
 
-        public class ThrowInstance : Operation
+        public class Instance : Operation
         {
             protected readonly DoubleValueVariable ErrorCode;
 
-            public ThrowInstance(ChipWrapper chip, int lineNumber, string[] source) : base(chip, lineNumber)
+            public Instance(ChipWrapper chip, int lineNumber, string[] source) : base(chip, lineNumber)
             {
                 if (source.Length == 2)
                 {

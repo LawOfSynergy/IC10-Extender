@@ -32,7 +32,6 @@ namespace IC10_Extender
                 );
             var highlightSyntaxPostfix = typeof(Patches)
                 .GetMethod("HighlightSyntax", All);
-            Plugin.Logger.LogInfo($"target: {highlightSyntaxTarget}\npatch: {highlightSyntaxPostfix}");
             harmony.Patch(highlightSyntaxTarget, postfix: new HarmonyMethod(highlightSyntaxPostfix));
         }
 

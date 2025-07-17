@@ -43,8 +43,19 @@ namespace IC10_Extender
             }
 
             op.Accept(lineNumber, source);
-            
-            return new OperationWrapper(op.Create(new ChipWrapper(chip), lineNumber, source));
+            try
+            {
+                return new OperationWrapper(op.Create(new ChipWrapper(chip), lineNumber, source));
+            } catch (Exception ex)
+            {
+                switch (ex)
+                {
+                    case ProgrammableChipException _: throw ex;
+                    default:
+                        Plugin.Logger.LogError(ex);
+                        throw new ProgrammableChipException(ICExceptionType.Unknown, lineNumber);
+                }
+            }
         }
 
         public static bool HasOpCode(string token) { return opcodes.ContainsKey(token); }

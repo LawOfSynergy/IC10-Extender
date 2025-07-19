@@ -38,6 +38,7 @@ namespace IC10_Extender
         {
             var args = Params(spaceCount);
             var result = "";
+            if (args == null) return result;
             for (int i = spaceCount; i < args.Length; i++)
             {
                 result += args[i] + " ";

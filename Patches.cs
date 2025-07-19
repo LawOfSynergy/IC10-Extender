@@ -157,7 +157,13 @@ namespace IC10_Extender
         public static string TrimStart(this string src, out string prefix)
         {
             var result = src.TrimStart();
-            prefix = src.Substring(0, src.IndexOf(result[0]));
+            if (!string.IsNullOrEmpty(result))
+            {
+                prefix = src.Substring(0, src.IndexOf(result[0]));
+            }else
+            {
+                prefix = string.Empty;
+            }
             return result;
         }
     }

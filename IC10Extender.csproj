@@ -2,7 +2,7 @@
 
 	<PropertyGroup>
 		<PackageId>ic10extender</PackageId>
-		<Version>1.0.1</Version>
+		<Version>1.1.0</Version>
 		<TargetFramework>net4.8</TargetFramework>
 		<RootNamespace>IC10_Extender</RootNamespace>
 		<GameDir>C:\Program Files (x86)\Steam\steamapps\common\Stationeers</GameDir>
@@ -36,6 +36,9 @@
 		</Reference>
 		<Reference Include="UnityEngine.PhysicsModule">
 			<HintPath>$(GameDir)\rocketstation_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
+		</Reference>
+		<Reference Include="UnityEngine.AnimationModule">
+			<HintPath>$(GameDir)\rocketstation_Data\Managed\UnityEngine.AnimationModule.dll</HintPath>
 		</Reference>
 	</ItemGroup>
 

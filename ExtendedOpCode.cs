@@ -1,14 +1,19 @@
 ﻿using Assets.Scripts;
 using Assets.Scripts.Objects.Electrical;
+using Assets.Scripts.UI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Emit;
+using UnityEngine;
 
 namespace IC10_Extender
 {
     public abstract class ExtendedOpCode
     {
         public string OpCode { get; private set; }
+
+        private HelpReference helpPage;
         
         public ExtendedOpCode(string opcode)
         {
@@ -32,6 +37,36 @@ namespace IC10_Extender
         public virtual string Color()
         {
             return "yellow";
+        }
+
+        public virtual string Description()
+        {
+            return "";
+        }
+
+        public void InitHelpPage(ScriptHelpWindow window)
+        {
+            try
+            {
+                helpPage = UnityEngine.Object.Instantiate(window.ReferencePrefab, window.FunctionTransform);
+                helpPage.Setup(
+                    $"<color={Color()}>{OpCode}</color> {CommandExample("yellow", 0)}",
+                    Description(),
+                    ScriptHelpWindow.ScriptLibraryWindow.DefaultItemImage,
+                    HelpReference.INSTRUCTION_STRING,
+                    Animator.StringToHash("opcode"),
+                    HelpReference.CommandHash
+                );
+            }
+            catch (Exception e)
+            {
+                Plugin.Logger.LogError(e);
+            }
+        }
+
+        public HelpReference HelpPage()
+        {
+            return helpPage;
         }
 
         public string CommandExample(string color, int spaceCount)

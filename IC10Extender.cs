@@ -20,13 +20,18 @@ namespace IC10_Extender
 {
     public class IC10Extender
     {
-        private static Dictionary<string, ExtendedOpCode> opcodes = new Dictionary<string, ExtendedOpCode>();
+        private static readonly Dictionary<string, ExtendedOpCode> opcodes = new Dictionary<string, ExtendedOpCode>();
 
         public static Dictionary<string, ExtendedOpCode> OpCodes => new Dictionary<string, ExtendedOpCode>(opcodes);
 
         public static void Register(ExtendedOpCode op)
         {
-            opcodes.Add(op.OpCode, op);
+            try { 
+                Plugin.Logger.LogInfo($"Registering opcode \"{op.OpCode}\"");
+                opcodes.Add(op.OpCode, op);
+            } catch (Exception ex){
+                Plugin.Logger.LogError(ex);
+            }
         }
 
         public static void Deregister(ExtendedOpCode op)
@@ -46,7 +51,8 @@ namespace IC10_Extender
             try
             {
                 return new OperationWrapper(op.Create(new ChipWrapper(chip), lineNumber, source));
-            } catch (Exception ex)
+            } 
+            catch (Exception ex)
             {
                 switch (ex)
                 {
@@ -55,6 +61,16 @@ namespace IC10_Extender
                         Plugin.Logger.LogError(ex);
                         throw new ProgrammableChipException(ICExceptionType.Unknown, lineNumber);
                 }
+            }
+        }
+
+        public static void ShowHelpPage(string opcode)
+        {
+            Plugin.Logger.LogInfo($"Searching for help page for {opcode}");
+            if(opcodes.TryGetValue(opcode, out ExtendedOpCode value))
+            {
+                Plugin.Logger.LogInfo($"Showing help page for {opcode}");
+                value.HelpPage().SetVisible(true);
             }
         }
 
@@ -73,6 +89,28 @@ namespace IC10_Extender
             {
                 return op.Execute(index);
             }
+        }
+    }
+
+    public class HelpPageRegister
+    {
+        private static List<HelpReference> pages = new List<HelpReference>();
+
+        public static void Init(List<HelpReference> init)
+        {
+            try
+            {
+                init.AddRange(pages);
+            }
+            catch (Exception ex)
+            {
+                Plugin.Logger.LogError(ex);
+            }
+        }
+
+        public static void Add(HelpReference helpPage)
+        {
+            pages.Add(helpPage);
         }
     }
 }

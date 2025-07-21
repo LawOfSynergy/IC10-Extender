@@ -24,18 +24,23 @@ namespace IC10_Extender
         {
             Plugin.Logger = base.Logger;
 
+            UnityEngine.Debug.Log("Loading Mod");
             Logger.LogInfo("Loading Mod");
             try
             {
+                UnityEngine.Debug.Log("Loading Harmony Patches");
                 Logger.LogInfo("Loading Harmony Patches");
                 var harmony = new Harmony("com.lawofsynergy.stationeers.ic10e");
                 HarmonyFileLog.Enabled = true;
                 Patches.Apply(harmony);
                 harmony.PatchAll();
+                UnityEngine.Debug.Log("Patch succeeded");
                 Logger.LogInfo("Patch succeeded");
             }
             catch (Exception e)
             {
+                UnityEngine.Debug.Log("Patch Failed");
+                UnityEngine.Debug.Log(e.ToString());
                 Logger.LogInfo("Patch Failed");
                 Logger.LogInfo(e.ToString());
             }

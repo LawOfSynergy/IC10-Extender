@@ -26,11 +26,13 @@ namespace IC10_Extender
 
         public static void Register(ExtendedOpCode op)
         {
-            try { 
-                Plugin.Logger.LogInfo($"Registering opcode \"{op.OpCode}\"");
+            try {
+                UnityEngine.Debug.Log($"Registering opcode \"{op.OpCode}\"");
+                Plugin.Logger?.LogInfo($"Registering opcode \"{op.OpCode}\"");
                 opcodes.Add(op.OpCode, op);
             } catch (Exception ex){
-                Plugin.Logger.LogError(ex);
+                UnityEngine.Debug.Log(ex);
+                Plugin.Logger?.LogError(ex);
             }
         }
 
@@ -64,12 +66,11 @@ namespace IC10_Extender
             }
         }
 
-        public static void ShowHelpPage(string opcode)
+        public static void ShowHelpPage(ScriptHelpWindow window, string opcode)
         {
-            Plugin.Logger.LogInfo($"Searching for help page for {opcode}");
+            window.ClearPreviousSearch();
             if(opcodes.TryGetValue(opcode, out ExtendedOpCode value))
             {
-                Plugin.Logger.LogInfo($"Showing help page for {opcode}");
                 value.HelpPage().SetVisible(true);
             }
         }
@@ -89,28 +90,6 @@ namespace IC10_Extender
             {
                 return op.Execute(index);
             }
-        }
-    }
-
-    public class HelpPageRegister
-    {
-        private static List<HelpReference> pages = new List<HelpReference>();
-
-        public static void Init(List<HelpReference> init)
-        {
-            try
-            {
-                init.AddRange(pages);
-            }
-            catch (Exception ex)
-            {
-                Plugin.Logger.LogError(ex);
-            }
-        }
-
-        public static void Add(HelpReference helpPage)
-        {
-            pages.Add(helpPage);
         }
     }
 }

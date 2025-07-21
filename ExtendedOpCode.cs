@@ -44,23 +44,29 @@ namespace IC10_Extender
             return "";
         }
 
-        public void InitHelpPage(ScriptHelpWindow window)
+        public HelpReference InitHelpPage(ScriptHelpWindow window)
         {
+            Debug.Log($"Initializing HelpPage for {OpCode}");
+            Plugin.Logger.LogInfo($"Initializing HelpPage for {OpCode}");
             try
             {
                 helpPage = UnityEngine.Object.Instantiate(window.ReferencePrefab, window.FunctionTransform);
                 helpPage.Setup(
                     $"<color={Color()}>{OpCode}</color> {CommandExample("yellow", 0)}",
                     Description(),
-                    ScriptHelpWindow.ScriptLibraryWindow.DefaultItemImage,
+                    window.DefaultItemImage,
                     HelpReference.INSTRUCTION_STRING,
                     Animator.StringToHash("opcode"),
                     HelpReference.CommandHash
                 );
+                Debug.Log($"Initializing HelpPage for {OpCode}");
+                Plugin.Logger.LogDebug($"Initialized HelpPage: {helpPage}");
+                return helpPage;
             }
             catch (Exception e)
             {
                 Plugin.Logger.LogError(e);
+                return helpPage;
             }
         }
 

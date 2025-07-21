@@ -151,6 +151,7 @@ namespace IC10_Extender
 
             List<CodeInstruction> insert = new List<CodeInstruction>()
             {
+                new CodeInstruction(OpCodes.Ldarg_0),
                 new CodeInstruction(OpCodes.Ldarg_1),
                 new CodeInstruction(OpCodes.Call, showHelpPage)
             };
@@ -175,13 +176,8 @@ namespace IC10_Extender
 
         public static void InitHelpPages(ScriptHelpWindow __instance)
         {
-            if (__instance.HelpMode == HelpMode.Functions)
-            {
-                __instance._helpReferences.AddRange(IC10Extender.OpCodes.Values.Select(opcode => {
-                    opcode.InitHelpPage(__instance);
-                    return opcode.HelpPage();
-                }));
-            }
+
+            __instance._helpReferences.AddRange(IC10Extender.OpCodes.Values.Select(opcode => opcode.InitHelpPage(__instance)));
         }
     }
 
@@ -190,13 +186,13 @@ namespace IC10_Extender
         public static FieldInfo DeclaredField(this Type type, string name) {
             if ((object)type == null)
             {
-                FileLog.Debug("AccessTools.DeclaredField: type is null");
+                Plugin.Logger?.LogDebug("AccessTools.DeclaredField: type is null");
                 return null;
             }
 
             if (string.IsNullOrEmpty(name))
             {
-                FileLog.Debug("AccessTools.DeclaredField: name is null/empty");
+                Plugin.Logger?.LogDebug("AccessTools.DeclaredField: name is null/empty");
                 return null;
             }
             var allDeclared = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.GetField | BindingFlags.SetField | BindingFlags.GetProperty | BindingFlags.SetProperty | BindingFlags.DeclaredOnly;
@@ -204,7 +200,7 @@ namespace IC10_Extender
             FieldInfo field = type.GetField(name, allDeclared);
             if (field is null)
             {
-                FileLog.Debug($"AccessTools.DeclaredField: Could not find field for type {type} and name {name}");
+                Plugin.Logger?.LogDebug($"AccessTools.DeclaredField: Could not find field for type {type} and name {name}");
             }
 
             return field;

@@ -20,13 +20,20 @@ namespace IC10_Extender
 {
     public class IC10Extender
     {
-        private static Dictionary<string, ExtendedOpCode> opcodes = new Dictionary<string, ExtendedOpCode>();
+        private static readonly Dictionary<string, ExtendedOpCode> opcodes = new Dictionary<string, ExtendedOpCode>();
 
         public static Dictionary<string, ExtendedOpCode> OpCodes => new Dictionary<string, ExtendedOpCode>(opcodes);
 
         public static void Register(ExtendedOpCode op)
         {
-            opcodes.Add(op.OpCode, op);
+            try {
+                UnityEngine.Debug.Log($"Registering opcode \"{op.OpCode}\"");
+                Plugin.Logger?.LogInfo($"Registering opcode \"{op.OpCode}\"");
+                opcodes.Add(op.OpCode, op);
+            } catch (Exception ex){
+                UnityEngine.Debug.Log(ex);
+                Plugin.Logger?.LogError(ex);
+            }
         }
 
         public static void Deregister(ExtendedOpCode op)
@@ -46,7 +53,8 @@ namespace IC10_Extender
             try
             {
                 return new OperationWrapper(op.Create(new ChipWrapper(chip), lineNumber, source));
-            } catch (Exception ex)
+            } 
+            catch (Exception ex)
             {
                 switch (ex)
                 {
@@ -55,6 +63,15 @@ namespace IC10_Extender
                         Plugin.Logger.LogError(ex);
                         throw new ProgrammableChipException(ICExceptionType.Unknown, lineNumber);
                 }
+            }
+        }
+
+        public static void ShowHelpPage(ScriptHelpWindow window, string opcode)
+        {
+            window.ClearPreviousSearch();
+            if(opcodes.TryGetValue(opcode, out ExtendedOpCode value))
+            {
+                value.HelpPage().SetVisible(true);
             }
         }
 

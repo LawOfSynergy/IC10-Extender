@@ -1,8 +1,11 @@
 ﻿using Assets.Scripts;
 using Assets.Scripts.Objects.Electrical;
+using Assets.Scripts.UI;
 using HarmonyLib;
+using Microsoft.SqlServer.Server;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 
@@ -33,6 +36,16 @@ namespace IC10_Extender
             var highlightSyntaxPostfix = typeof(Patches)
                 .GetMethod("HighlightSyntax", All);
             harmony.Patch(highlightSyntaxTarget, postfix: new HarmonyMethod(highlightSyntaxPostfix));
+
+            var helpPageTarget = typeof(ScriptHelpWindow)
+                .GetMethod("ForceSearch", All);
+            var helpPageTranspiler = typeof(Patches)
+                .GetMethod("InjectHelpPageSearch", All);
+            harmony.Patch(helpPageTarget, transpiler: new HarmonyMethod(helpPageTranspiler));
+
+            var helpWindowInitTarget = typeof(ScriptHelpWindow).GetMethod("Initialize", All);
+            var helpPageInitPostfix = typeof(Patches).GetMethod("InitHelpPages", All);
+            harmony.Patch(helpWindowInitTarget, postfix: new HarmonyMethod(helpPageInitPostfix));
         }
 
 
@@ -122,6 +135,50 @@ namespace IC10_Extender
                 masterString = original;
             }
         }
+
+        public static List<CodeInstruction> InjectHelpPageSearch(IEnumerable<CodeInstruction> instructions, ILGenerator generator, MethodBase original)
+        {
+            LocalBuilder ext = generator.DeclareLocal(typeof(HelpReference));
+            var showHelpPage = typeof(IC10Extender).GetMethod("ShowHelpPage", BindingFlags.DeclaredOnly | BindingFlags.Static | BindingFlags.Public);
+            var cmatcher = new CodeMatcher(instructions, generator);
+
+            Label endOfSwitch = generator.DefineLabel();
+            Label functions = generator.DefineLabel();
+            Label variables = generator.DefineLabel();
+            Label slotVariables = generator.DefineLabel();
+
+            Label[] jumpTable = {endOfSwitch, functions, variables, slotVariables, endOfSwitch};
+
+            List<CodeInstruction> insert = new List<CodeInstruction>()
+            {
+                new CodeInstruction(OpCodes.Ldarg_0),
+                new CodeInstruction(OpCodes.Ldarg_1),
+                new CodeInstruction(OpCodes.Call, showHelpPage)
+            };
+
+            cmatcher.MatchStartForward(new CodeMatch(OpCodes.Switch));
+            cmatcher.RemoveInstruction();
+            cmatcher.Insert(new CodeInstruction(OpCodes.Switch, jumpTable));
+            cmatcher.Advance(2);
+            cmatcher.Insert(insert);
+            cmatcher.AddLabels(new Label[] { functions });
+            cmatcher.Advance(insert.Count);
+            cmatcher.Advance(43);
+            cmatcher.AddLabels(new Label[] {variables});
+            cmatcher.MatchForward(true, new CodeMatch(OpCodes.Endfinally));
+            cmatcher.MatchForward(false, new CodeMatch(OpCodes.Ldarg_1));
+            cmatcher.AddLabels(new Label[] { slotVariables });
+            cmatcher.Advance(12);
+            cmatcher.AddLabels(new Label[] { endOfSwitch });
+
+            return cmatcher.Instructions();
+        }
+
+        public static void InitHelpPages(ScriptHelpWindow __instance)
+        {
+
+            __instance._helpReferences.AddRange(IC10Extender.OpCodes.Values.Select(opcode => opcode.InitHelpPage(__instance)));
+        }
     }
 
     public static class Extensions
@@ -129,13 +186,13 @@ namespace IC10_Extender
         public static FieldInfo DeclaredField(this Type type, string name) {
             if ((object)type == null)
             {
-                FileLog.Debug("AccessTools.DeclaredField: type is null");
+                Plugin.Logger?.LogDebug("AccessTools.DeclaredField: type is null");
                 return null;
             }
 
             if (string.IsNullOrEmpty(name))
             {
-                FileLog.Debug("AccessTools.DeclaredField: name is null/empty");
+                Plugin.Logger?.LogDebug("AccessTools.DeclaredField: name is null/empty");
                 return null;
             }
             var allDeclared = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.GetField | BindingFlags.SetField | BindingFlags.GetProperty | BindingFlags.SetProperty | BindingFlags.DeclaredOnly;
@@ -143,7 +200,7 @@ namespace IC10_Extender
             FieldInfo field = type.GetField(name, allDeclared);
             if (field is null)
             {
-                FileLog.Debug($"AccessTools.DeclaredField: Could not find field for type {type} and name {name}");
+                Plugin.Logger?.LogDebug($"AccessTools.DeclaredField: Could not find field for type {type} and name {name}");
             }
 
             return field;

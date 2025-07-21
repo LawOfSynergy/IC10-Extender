@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace IC10_Extender
 {
-    [BepInPlugin("net.lawofsynergy.stationeers.ic10e", "IC10 Extender", "0.0.2.1")]
+    [BepInPlugin("net.lawofsynergy.stationeers.ic10e", "IC10 Extender", "0.0.3.0")]
     public class Plugin : BaseUnityPlugin
     {
         public static new ManualLogSource Logger;
@@ -24,18 +24,23 @@ namespace IC10_Extender
         {
             Plugin.Logger = base.Logger;
 
+            UnityEngine.Debug.Log("Loading Mod");
             Logger.LogInfo("Loading Mod");
             try
             {
+                UnityEngine.Debug.Log("Loading Harmony Patches");
                 Logger.LogInfo("Loading Harmony Patches");
                 var harmony = new Harmony("com.lawofsynergy.stationeers.ic10e");
                 HarmonyFileLog.Enabled = true;
                 Patches.Apply(harmony);
                 harmony.PatchAll();
+                UnityEngine.Debug.Log("Patch succeeded");
                 Logger.LogInfo("Patch succeeded");
             }
             catch (Exception e)
             {
+                UnityEngine.Debug.Log("Patch Failed");
+                UnityEngine.Debug.Log(e.ToString());
                 Logger.LogInfo("Patch Failed");
                 Logger.LogInfo(e.ToString());
             }

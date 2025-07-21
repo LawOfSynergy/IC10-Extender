@@ -52,7 +52,7 @@ namespace IC10_Extender
             {
                 helpPage = UnityEngine.Object.Instantiate(window.ReferencePrefab, window.FunctionTransform);
                 helpPage.Setup(
-                    $"<color={Color()}>{OpCode}</color> {CommandExample("yellow", 0)}",
+                    $"<color={Color()}>{OpCode}</color> {CommandExample(0)}",
                     Description(),
                     window.DefaultItemImage,
                     HelpReference.INSTRUCTION_STRING,
@@ -75,16 +75,16 @@ namespace IC10_Extender
             return helpPage;
         }
 
-        public string CommandExample(string color, int spaceCount)
+        public string CommandExample(int spaceCount, string overrideColor = null)
         {
             var args = Params(spaceCount);
             var result = "";
             if (args == null) return result;
             for (int i = spaceCount; i < args.Length; i++)
             {
-                result += args[i] + " ";
+                result += (overrideColor != null ? args[i].Strip() : args[i]) + " ";
             }
-            return string.Format("<color={1}>{0}</color>", result.TrimEnd(), color);
+            return overrideColor == null ? result.TrimEnd() : string.Format("<color={1}>{0}</color>", result.TrimEnd(), overrideColor);
         }
     }
 }

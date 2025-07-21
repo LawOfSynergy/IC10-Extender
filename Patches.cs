@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using UnityEngine;
 
 namespace IC10_Extender
 {
@@ -17,6 +18,8 @@ namespace IC10_Extender
         private static readonly BindingFlags All = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
         public static void Apply(Harmony harmony)
         {
+            Debug.Log("Applying patch to LineOfCode.ctor");
+            Plugin.Logger.LogInfo("Applying patch to LineOfCode.ctor");
             var opCodeLoadingTarget = typeof(ProgrammableChip._LineOfCode)
                 .GetConstructor(
                     All,
@@ -28,6 +31,8 @@ namespace IC10_Extender
                 .GetMethod("InjectOpCodeLoading", All);
             harmony.Patch(opCodeLoadingTarget, transpiler: new HarmonyMethod(opCodeLoadingTranspiler));
 
+            Debug.Log("Applying patch to Localization.ReplaceCommands()");
+            Plugin.Logger.LogInfo("Applying patch to Localization.ReplaceCommands()");
             var highlightSyntaxTarget = typeof(Localization)
                 .GetMethod(
                     "ReplaceCommands",
@@ -37,12 +42,16 @@ namespace IC10_Extender
                 .GetMethod("HighlightSyntax", All);
             harmony.Patch(highlightSyntaxTarget, postfix: new HarmonyMethod(highlightSyntaxPostfix));
 
+            Debug.Log("Applying patch to ScriptHelpWindow.ForceSearch()");
+            Plugin.Logger.LogInfo("Applying patch to ScriptHelpWindow.ForceSearch()");
             var helpPageTarget = typeof(ScriptHelpWindow)
                 .GetMethod("ForceSearch", All);
             var helpPageTranspiler = typeof(Patches)
                 .GetMethod("InjectHelpPageSearch", All);
             harmony.Patch(helpPageTarget, transpiler: new HarmonyMethod(helpPageTranspiler));
 
+            Debug.Log("Applying patch to ScriptHelpWindow.Initialize()");
+            Plugin.Logger.LogInfo("Applying patch to ScriptHelpWindow.Initialize()");
             var helpWindowInitTarget = typeof(ScriptHelpWindow).GetMethod("Initialize", All);
             var helpPageInitPostfix = typeof(Patches).GetMethod("InitHelpPages", All);
             harmony.Patch(helpWindowInitTarget, postfix: new HarmonyMethod(helpPageInitPostfix));
@@ -123,7 +132,7 @@ namespace IC10_Extender
 
                             int spaceCount = copy.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length - 1;
                             string fragment = masterString.Substring(len, masterString.Length - len);
-                            masterString = $"{string.Format(format, name, opcode.Color())}{fragment.TrimEnd()} {opcode.CommandExample("darkgrey", spaceCount)}";
+                            masterString = $"{string.Format(format, name, opcode.Color())}{fragment.TrimEnd()} {opcode.CommandExample(spaceCount, "darkgrey")}";
                             break;
                         }
                     }

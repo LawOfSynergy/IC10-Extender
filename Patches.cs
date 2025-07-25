@@ -66,7 +66,6 @@ namespace IC10_Extender
                 lineRef?.SetValue(__instance, lineNumber.ToString());
 
                 Line line = ConstructionContext.Get(chip, lineNumber);
-                Plugin.Logger.LogInfo($"Loading preprocessed line info:\n{line.OriginatingLineNumber}: \"{line.Raw}\", op={line.Op}");
                 var op = line.Op;
 
                 if (op != null)

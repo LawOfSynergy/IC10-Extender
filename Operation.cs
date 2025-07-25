@@ -358,5 +358,37 @@ namespace IC10_Extender
                 return GetVariableValue((ProgrammableChip._AliasTarget)type, throwException);
             }
         }
+
+        public static implicit operator ProgrammableChip._Operation(Operation op) => new OperationWrapper(op);
+        public static implicit operator Operation(ProgrammableChip._Operation op) => new ReverseWrapper(op);
+
+        class OperationWrapper : ProgrammableChip._Operation
+        {
+            private readonly Operation op;
+            public OperationWrapper(Operation op) : base(op.Chip.chip, op.LineNumber)
+            {
+                this.op = op;
+            }
+
+            public override int Execute(int index)
+            {
+                return op.Execute(index);
+            }
+        }
+
+        class ReverseWrapper : Operation
+        {
+            private readonly ProgrammableChip._Operation op;
+
+            public ReverseWrapper(ProgrammableChip._Operation op) : base(new ChipWrapper(op._Chip), op._LineNumber)
+            {
+                this.op = op;
+            }
+
+            public override int Execute(int index)
+            {
+                return op.Execute(index);
+            }
+        }
     }
 }

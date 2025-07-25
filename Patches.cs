@@ -1,227 +1,278 @@
 ﻿using Assets.Scripts;
 using Assets.Scripts.Objects.Electrical;
 using Assets.Scripts.UI;
+using Assets.Scripts.Util;
 using HarmonyLib;
+using JetBrains.Annotations;
 using Microsoft.SqlServer.Server;
+using Reagents;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
+using UnityEngine;
+using static Assets.Scripts.Objects.Electrical.ProgrammableChipException;
+using static IC10_Extender.PreprocessorOperation;
 
 namespace IC10_Extender
 {
 
     public class Patches
     {
-        private static readonly BindingFlags All = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
         public static void Apply(Harmony harmony)
         {
-            var opCodeLoadingTarget = typeof(ProgrammableChip._LineOfCode)
-                .GetConstructor(
-                    All,
-                    null,
-                    new Type[] { typeof(ProgrammableChip), typeof(string), typeof(int) },
-                    null
-                );
-            var opCodeLoadingTranspiler = typeof(Patches)
-                .GetMethod("InjectOpCodeLoading", All);
-            harmony.Patch(opCodeLoadingTarget, transpiler: new HarmonyMethod(opCodeLoadingTranspiler));
+            Plugin.Logger.LogInfo("Patching ProgrammableChip._LineOfCode.<ctor>");
+            harmony.Patch(
+                typeof(ProgrammableChip._LineOfCode).GetConstructor(typeof(ProgrammableChip), typeof(string), typeof(int)),
+                prefix: new HarmonyMethod(typeof(Patches).GetMethod("LineOfCodeCTOR", typeof(ProgrammableChip._LineOfCode), typeof(ProgrammableChip), typeof(int)), debug: true)
+            );
 
-            var highlightSyntaxTarget = typeof(Localization)
-                .GetMethod(
-                    "ReplaceCommands",
-                    All
-                );
-            var highlightSyntaxPostfix = typeof(Patches)
-                .GetMethod("HighlightSyntax", All);
-            harmony.Patch(highlightSyntaxTarget, postfix: new HarmonyMethod(highlightSyntaxPostfix));
+            Plugin.Logger.LogInfo("Patching ProgrammableChip.SetSourceCode");
+            harmony.Patch(
+                typeof(ProgrammableChip).GetMethod("SetSourceCode",typeof(string)),
+                prefix: new HarmonyMethod(typeof(Patches).GetMethod("SetSourceCode", typeof(ProgrammableChip), typeof(string)), debug: true)
+            );
 
-            var helpPageTarget = typeof(ScriptHelpWindow)
-                .GetMethod("ForceSearch", All);
-            var helpPageTranspiler = typeof(Patches)
-                .GetMethod("InjectHelpPageSearch", All);
-            harmony.Patch(helpPageTarget, transpiler: new HarmonyMethod(helpPageTranspiler));
+            Plugin.Logger.LogInfo("Patching Localization.ReplaceCommands");
+            harmony.Patch(
+                typeof(Localization).GetMethod("ReplaceCommands", Extensions.All),
+                prefix: new HarmonyMethod(typeof(Patches).GetMethod("HighlightSyntax", Extensions.All), debug: true)
+            );
 
-            var helpWindowInitTarget = typeof(ScriptHelpWindow).GetMethod("Initialize", All);
-            var helpPageInitPostfix = typeof(Patches).GetMethod("InitHelpPages", All);
-            harmony.Patch(helpWindowInitTarget, postfix: new HarmonyMethod(helpPageInitPostfix));
+            Plugin.Logger.LogInfo("Patching Localization.ParseScriptLine");
+            harmony.Patch(
+                typeof(Localization).GetMethod("ParseScriptLine", Extensions.All),
+                postfix: new HarmonyMethod(typeof(Patches).GetMethod("ApplyColors", Extensions.All), debug: true)
+            );
+
+            Plugin.Logger.LogInfo("Patching ScriptHelpWindow.Initialize");
+            harmony.Patch(
+                typeof(ScriptHelpWindow).GetMethod("Initialize", new Type[0]),
+                prefix: new HarmonyMethod(typeof(Patches).GetMethod("InitHelpPages", typeof(ScriptHelpWindow)), debug: true)
+            );
         }
 
-
-        public static List<CodeInstruction> InjectOpCodeLoading(IEnumerable<CodeInstruction> instructions, ILGenerator generator, MethodBase original)
+        public static bool LineOfCodeCTOR(ProgrammableChip._LineOfCode __instance, ProgrammableChip chip, int lineNumber)
         {
-            List<CodeInstruction> insert = new List<CodeInstruction>();
-            Label normal = generator.DefineLabel();
-            Label extended = generator.DefineLabel();
-            LocalBuilder ext = generator.DeclareLocal(typeof(ProgrammableChip._Operation));
-            var extMethod = typeof(IC10Extender).GetMethod("LoadOpCode", BindingFlags.DeclaredOnly | BindingFlags.Static | BindingFlags.Public);
+            try
+            { 
+                var type = typeof(ProgrammableChip._LineOfCode);
+                var lineRef = type.GetField("LineOfCode", BindingFlags.Public | BindingFlags.Instance);
+                var opRef = type.GetField("Operation", BindingFlags.Public | BindingFlags.Instance);
 
-            insert.Add(new CodeInstruction(OpCodes.Ldarg_1));
-            insert[0].labels.Add(extended);
-            insert.Add(new CodeInstruction(OpCodes.Ldarg_2));
-            insert.Add(new CodeInstruction(OpCodes.Ldarg_3));
-            insert.Add(new CodeInstruction(OpCodes.Ldloc_S, 4));
-            insert.Add(new CodeInstruction(OpCodes.Call, extMethod));
-            insert.Add(new CodeInstruction(OpCodes.Stloc, ext.LocalIndex));
-            insert.Add(new CodeInstruction(OpCodes.Ldloc, ext.LocalIndex));
-            insert.Add(new CodeInstruction(OpCodes.Brfalse, normal));
-            insert.Add(new CodeInstruction(OpCodes.Ldarg_0));
-            insert.Add(new CodeInstruction(OpCodes.Ldloc, ext.LocalIndex));
-            insert.Add(new CodeInstruction(OpCodes.Stfld, typeof(ProgrammableChip._LineOfCode).DeclaredField("Operation")));
-            insert.Add(new CodeInstruction(OpCodes.Ldarg_0));
-            insert.Add(new CodeInstruction(OpCodes.Ldarg_2));
-            insert.Add(new CodeInstruction(OpCodes.Stfld, typeof(ProgrammableChip._LineOfCode).DeclaredField("LineOfCode")));
-            insert.Add(new CodeInstruction(OpCodes.Ret));
+                lineRef?.SetValue(__instance, lineNumber.ToString());
 
-            var cmatcher = new CodeMatcher(instructions, generator);
+                Line line = ConstructionContext.Get(chip, lineNumber);
+                Plugin.Logger.LogInfo($"Loading preprocessed line info:\n{line.OriginatingLineNumber}: \"{line.Raw}\", op={line.Op}");
+                var op = line.Op;
 
-            var count = 0;
-            cmatcher.MatchStartForward(new CodeMatch(OpCodes.Ldlen))
-                .Repeat(cm =>
+                if (op != null)
                 {
-                    count++;
-                    if (count == 3)
-                    {
-                        cm.Advance(3);
-                        cm.RemoveInstruction();
-                        cm.Insert(new CodeInstruction[] { new CodeInstruction(OpCodes.Bne_Un_S, extended) });
-                        cm.Advance(6);
-                        cm.RemoveInstruction();
-                        cm.Insert(new CodeInstruction[] { new CodeInstruction(OpCodes.Blt_S, extended) });
-                        cm.Advance(12);
-                        cm.RemoveInstruction();
-                        cm.Insert(new CodeInstruction[] { new CodeInstruction(OpCodes.Bne_Un_S, extended) });
-                        cm.Advance(33);
-                        cm.Insert(insert);
-                        cm.Advance(insert.Count);
-                        cm.AddLabels(new List<Label>() { normal });
-                    }
-                    cm.Advance(1);
-                });
-            return cmatcher.Instructions();
+                    opRef.SetValue(__instance, (ProgrammableChip._Operation)op);
+                    return false;
+                }
+
+                var tokens = line.Raw.Split().Where(token => !string.IsNullOrEmpty(token)).ToArray();
+                if (tokens.Length == 0)
+                {
+                    opRef?.SetValue(__instance, new ProgrammableChip._NOOP_Operation(chip, lineNumber));
+                    return false;
+                }
+
+                var opCode = IC10Extender.OpCode(tokens[0]);
+                if (opCode != null)
+                {
+                    opRef.SetValue(__instance, (ProgrammableChip._Operation)opCode.Create(new ChipWrapper(chip), lineNumber, tokens));
+                    return false;
+                }
+
+                throw new ProgrammableChipException(ICExceptionType.UnrecognisedInstruction, lineNumber);
+            }
+            catch (Exception ex)
+            {
+                Plugin.Logger.LogError(ex);
+                throw ex.Wrap(lineNumber);
+            }
         }
 
-        public static void HighlightSyntax(ref string masterString)
+        public static bool SetSourceCode(ProgrammableChip __instance, string sourceCode)
         {
-            if (string.IsNullOrEmpty(masterString)) return;
-
-            var original = masterString;
             try
             {
-                string format = "<color={1}>{0}</color>";
-                masterString = masterString.TrimStart(out string prefix);
-                foreach (var opcode in IC10Extender.OpCodes.Values)
+                __instance._LinesOfCode.Clear();
+                __instance._Aliases.Clear();
+                __instance._Defines.Clear();
+                __instance._JumpTags.Clear();
+                __instance._ErrorType = ICExceptionType.None;
+                __instance._ErrorLineNumber = 0;
+                __instance.CompileErrorType = ICExceptionType.None;
+                __instance.CompileErrorLineNumber = (ushort)0;
+                __instance._Registers[__instance._StackPointerIndex] = 0.0;
+                if (string.IsNullOrEmpty(sourceCode))
+                    sourceCode = string.Empty;
+                __instance.SourceCode = new AsciiString(sourceCode);
+                if (__instance.CircuitHousing != null)
                 {
-                    string name = opcode.OpCode;
-                    int len = opcode.OpCode.Length;
-                    if (masterString.Length >= len && masterString.Substring(0, len).Equals(name))
-                    {
-                        string copy = masterString;
-                        if (masterString.Length < name.Length + 1 || masterString[name.Length] == ' ')
-                        {
+                    __instance.CircuitHousing.ClearError();
+                    new ProgrammableChip._ALIAS_Operation(__instance, 0, "db", string.Format("d{0}", int.MaxValue)).Execute(0, false);
+                    new ProgrammableChip._ALIAS_Operation(__instance, 0, "sp", string.Format("r{0}", __instance._StackPointerIndex)).Execute(0);
+                    new ProgrammableChip._ALIAS_Operation(__instance, 0, "ra", string.Format("r{0}", __instance._ReturnAddressIndex)).Execute(0);
+                }
+                var lines = sourceCode.Split('\n', StringSplitOptions.None).Select((line, index) => new Line(line, (ushort)index));
 
-                            int spaceCount = copy.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length - 1;
-                            string fragment = masterString.Substring(len, masterString.Length - len);
-                            masterString = $"{string.Format(format, name, opcode.Color())}{fragment.TrimEnd()} {opcode.CommandExample("darkgrey", spaceCount)}";
-                            break;
+                try
+                {
+                    foreach (var preprocessor in IC10Extender.Preprocessors)
+                    {
+                        lines = preprocessor.Create(new ChipWrapper(__instance)).Process(lines).ToList();
+                    }
+
+                    ConstructionContext.Store(__instance, lines);
+                    var tmp = lines.ToArray();
+                    for (var i = 0; i < tmp.Count(); i++)
+                    {
+                        try
+                        {
+                            var line = tmp[i];
+                            __instance._LinesOfCode.Add(new ProgrammableChip._LineOfCode(__instance, line.Raw, i));
+                        }
+                        catch (Exception ex)
+                        {
+                            Plugin.Logger.LogError(ex);
+                            throw ex.Wrap(i);
                         }
                     }
                 }
-                masterString = prefix + masterString;
-            }catch (Exception ex)
+                catch(ProgrammableChipException ex)
+                {
+                    __instance.CircuitHousing?.RaiseError(1);
+                    __instance.CompileErrorLineNumber = ex.LineNumber;
+                    __instance.CompileErrorType = ex.ExceptionType;
+                    Plugin.Logger.LogError(ex);
+                }
+
+                ConstructionContext.Clear(__instance);
+                __instance._NextAddr = 0;
+                return false;
+            }
+            catch (Exception ex)
             {
-                Plugin.Logger.LogError($"Encountered exception processing \"{original}\"\n{ex}");
-                masterString = original;
+                Plugin.Logger.LogError(ex);
+                return true;
             }
         }
 
-        public static List<CodeInstruction> InjectHelpPageSearch(IEnumerable<CodeInstruction> instructions, ILGenerator generator, MethodBase original)
+        public static bool HighlightSyntax(ref string masterString, ref List<string> acceptedStrings, ref List<string> acceptedJumps, EditorLineOfCode line = null)
         {
-            LocalBuilder ext = generator.DeclareLocal(typeof(HelpReference));
-            var showHelpPage = typeof(IC10Extender).GetMethod("ShowHelpPage", BindingFlags.DeclaredOnly | BindingFlags.Static | BindingFlags.Public);
-            var cmatcher = new CodeMatcher(instructions, generator);
-
-            Label endOfSwitch = generator.DefineLabel();
-            Label functions = generator.DefineLabel();
-            Label variables = generator.DefineLabel();
-            Label slotVariables = generator.DefineLabel();
-
-            Label[] jumpTable = {endOfSwitch, functions, variables, slotVariables, endOfSwitch};
-
-            List<CodeInstruction> insert = new List<CodeInstruction>()
+            try
             {
-                new CodeInstruction(OpCodes.Ldarg_0),
-                new CodeInstruction(OpCodes.Ldarg_1),
-                new CodeInstruction(OpCodes.Call, showHelpPage)
-            };
+                string format = "<color={1}>{0}</color>";
 
-            cmatcher.MatchStartForward(new CodeMatch(OpCodes.Switch));
-            cmatcher.RemoveInstruction();
-            cmatcher.Insert(new CodeInstruction(OpCodes.Switch, jumpTable));
-            cmatcher.Advance(2);
-            cmatcher.Insert(insert);
-            cmatcher.AddLabels(new Label[] { functions });
-            cmatcher.Advance(insert.Count);
-            cmatcher.Advance(43);
-            cmatcher.AddLabels(new Label[] {variables});
-            cmatcher.MatchForward(true, new CodeMatch(OpCodes.Endfinally));
-            cmatcher.MatchForward(false, new CodeMatch(OpCodes.Ldarg_1));
-            cmatcher.AddLabels(new Label[] { slotVariables });
-            cmatcher.Advance(12);
-            cmatcher.AddLabels(new Label[] { endOfSwitch });
+                if (string.IsNullOrWhiteSpace(masterString)) return false;
+                foreach (IScriptEnum internalEnum in ProgrammableChip.InternalEnums)
+                    internalEnum.Parse(ref masterString);
+                foreach (Reagent allReagent in Reagent.AllReagents)
+                    masterString = masterString.ReplaceWholeWord(allReagent.TypeNameShort, string.Format(format, allReagent.DisplayName, "orange"));
+                Localization.ReplaceCommandStringA2(ref masterString, "alias", "<color=yellow>{1}</color> <color=colorstring>{0}</color> {2}");
+                Localization.ReplaceCommandStringA2(ref masterString, "define", "<color=yellow>{1}</color> <color=colorstring>{0}</color> {2}");
+                Localization.ReplaceJumpString(ref masterString, "<color=purple>{0}</color>");
+                foreach (string wordToFind in acceptedStrings)
+                    masterString = masterString.ReplaceWholeWord(wordToFind, string.Format("<color={1}>{0}</color>", wordToFind, "colorstring"), line);
+                foreach (string wordToFind in acceptedJumps)
+                    masterString = masterString.ReplaceWholeWord(wordToFind, string.Format("<color={1}>{0}</color>", wordToFind, "purple"), line);
 
-            return cmatcher.Instructions();
+                var original = masterString;
+                try
+                {
+
+                    masterString = masterString.TrimStart(out string prefix);
+                    foreach (var opcode in IC10Extender.OpCodes.Values)
+                    {
+                        string name = opcode.OpCode;
+                        int len = opcode.OpCode.Length;
+                        if (masterString.Length >= len && masterString.Substring(0, len).Equals(name))
+                        {
+                            string copy = masterString;
+                            if (masterString.Length < name.Length + 1 || masterString[name.Length] == ' ')
+                            {
+
+                                int spaceCount = copy.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length - 1;
+                                string fragment = masterString.Substring(len, masterString.Length - len);
+                                masterString = $"{string.Format(format, name, opcode.Color())}{fragment.TrimEnd()} {opcode.CommandExample(spaceCount, "darkgrey")}";
+                                break;
+                            }
+                        }
+                    }
+                    masterString = prefix + masterString;
+                }
+                catch (Exception ex)
+                {
+                    Plugin.Logger.LogError($"Encountered exception processing \"{original}\"\n{ex}");
+                    masterString = original;
+                }
+            }
+            catch (Exception ex)
+            {
+                Plugin.Logger.LogError(ex);
+                return true;
+            }
+
+            return false;
         }
 
-        public static void InitHelpPages(ScriptHelpWindow __instance)
+        public static void ApplyColors(ref string __result)
         {
-
-            __instance._helpReferences.AddRange(IC10Extender.OpCodes.Values.Select(opcode => opcode.InitHelpPage(__instance)));
-        }
-    }
-
-    public static class Extensions
-    {
-        public static FieldInfo DeclaredField(this Type type, string name) {
-            if ((object)type == null)
+            try
             {
-                Plugin.Logger?.LogDebug("AccessTools.DeclaredField: type is null");
-                return null;
+                foreach (var entry in IC10Extender.Colors)
+                {
+                    __result = __result.Replace($"<color={entry.Key}>", $"<color={entry.Value}>");
+                }
             }
-
-            if (string.IsNullOrEmpty(name))
+            catch (Exception ex)
             {
-                Plugin.Logger?.LogDebug("AccessTools.DeclaredField: name is null/empty");
-                return null;
+                Plugin.Logger.LogError(ex);
             }
-            var allDeclared = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.GetField | BindingFlags.SetField | BindingFlags.GetProperty | BindingFlags.SetProperty | BindingFlags.DeclaredOnly;
-
-            FieldInfo field = type.GetField(name, allDeclared);
-            if (field is null)
-            {
-                Plugin.Logger?.LogDebug($"AccessTools.DeclaredField: Could not find field for type {type} and name {name}");
-            }
-
-            return field;
         }
 
-        public static string[] Split(this string src, char separator, StringSplitOptions options)
+        public static bool InitHelpPages(ScriptHelpWindow __instance)
         {
-            return src.Split(new char[] {separator }, options);
+            try
+            {
+                if (__instance.HelpMode == HelpMode.Functions)
+                {
+                    if (__instance.Description)
+                        __instance.Description.text = ProgrammableChip.GetIntroString();
+                    IC10Extender.Preprocessors.Do(preprocessor => preprocessor.InitHelpPage(__instance));
+                    IC10Extender.Constants.Values.Do(constant =>
+                    {
+                        HelpReference helpReference = UnityEngine.Object.Instantiate(__instance.ReferencePrefab, __instance.FunctionTransform);
+                        helpReference.Setup(constant, __instance.DefaultItemImage2);
+                        __instance._helpReferences.Add(helpReference);
+                    });
+
+                    var sorted = IC10Extender.OpCodes.Values.ToList();
+                    sorted.Sort((a, b) => string.Compare(a.ToString(), b.ToString(), StringComparison.Ordinal));
+                    sorted.Do(opcode => opcode.InitHelpPage(__instance));
+
+                    return false;
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Plugin.Logger.LogError (ex);
+                return true;
+            }
         }
 
-        public static string TrimStart(this string src, out string prefix)
+        public static void ShowHelpPage(ScriptHelpWindow window, string opcode)
         {
-            var result = src.TrimStart();
-            if (!string.IsNullOrEmpty(result))
-            {
-                prefix = src.Substring(0, src.IndexOf(result[0]));
-            }else
-            {
-                prefix = string.Empty;
-            }
-            return result;
+            window.ClearPreviousSearch();
+            IC10Extender.OpCode(opcode)?.HelpPage().SetVisible(true);
         }
     }
 }

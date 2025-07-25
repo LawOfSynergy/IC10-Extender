@@ -16,7 +16,7 @@ namespace IC10_Extender
     {
         protected ManualLogSource Logger;
 
-        private static readonly HelpString[] Args = {INTEGER.Optional() };
+        private static readonly HelpString[] Args = {(REGISTER+INTEGER).Var("errCode").Optional() };
 
         public ThrowOperation() : base("error")
         {

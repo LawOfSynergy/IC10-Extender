@@ -13,11 +13,13 @@ namespace IC10_Extender
     {
         public string OpCode { get; private set; }
 
-        private HelpReference helpPage;
+        protected HelpReference helpPage;
+        public bool Deprecated { get; private set; }
         
-        public ExtendedOpCode(string opcode)
+        public ExtendedOpCode(string opcode, bool deprecated = false)
         {
             OpCode = opcode;
+            Deprecated = deprecated;
         }
 
         //throw ProgrammableChipException if the input is not acceptable, e.g. if the number of args doesn't match
@@ -44,7 +46,7 @@ namespace IC10_Extender
             return "";
         }
 
-        public HelpReference InitHelpPage(ScriptHelpWindow window)
+        public virtual void InitHelpPage(ScriptHelpWindow window)
         {
             Debug.Log($"Initializing HelpPage for {OpCode}");
             Plugin.Logger.LogInfo($"Initializing HelpPage for {OpCode}");
@@ -52,21 +54,20 @@ namespace IC10_Extender
             {
                 helpPage = UnityEngine.Object.Instantiate(window.ReferencePrefab, window.FunctionTransform);
                 helpPage.Setup(
-                    $"<color={Color()}>{OpCode}</color> {CommandExample("yellow", 0)}",
+                    $"<color={Color()}>{OpCode}</color> {CommandExample(0)}",
                     Description(),
                     window.DefaultItemImage,
                     HelpReference.INSTRUCTION_STRING,
-                    Animator.StringToHash("opcode"),
+                    Animator.StringToHash(OpCode),
                     HelpReference.CommandHash
                 );
                 Debug.Log($"Initializing HelpPage for {OpCode}");
                 Plugin.Logger.LogDebug($"Initialized HelpPage: {helpPage}");
-                return helpPage;
+                window._helpReferences.Add(helpPage);
             }
             catch (Exception e)
             {
                 Plugin.Logger.LogError(e);
-                return helpPage;
             }
         }
 
@@ -75,16 +76,16 @@ namespace IC10_Extender
             return helpPage;
         }
 
-        public string CommandExample(string color, int spaceCount)
+        public string CommandExample(int spaceCount, string overrideColor = null)
         {
             var args = Params(spaceCount);
             var result = "";
             if (args == null) return result;
             for (int i = spaceCount; i < args.Length; i++)
             {
-                result += args[i] + " ";
+                result += (overrideColor != null ? args[i].Strip() : args[i]) + " ";
             }
-            return string.Format("<color={1}>{0}</color>", result.TrimEnd(), color);
+            return overrideColor == null ? result.TrimEnd() : string.Format("<color={1}>{0}</color>", result.TrimEnd(), overrideColor);
         }
     }
 }

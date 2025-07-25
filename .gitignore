@@ -365,3 +365,5 @@ FodyWeavers.xsd
 
 ./publicized-dlls/
 ./original-dlls/
+publicized-dlls
+original-dlls

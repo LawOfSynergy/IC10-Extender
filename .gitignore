@@ -205,7 +205,6 @@ PublishScripts/
 # NuGet v3's project.json files produces more ignorable files
 *.nuget.props
 *.nuget.targets
-nuget.config
 
 # Microsoft Azure Build Output
 csx/
@@ -362,8 +361,3 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
-
-./publicized-dlls/
-./original-dlls/
-publicized-dlls
-original-dlls

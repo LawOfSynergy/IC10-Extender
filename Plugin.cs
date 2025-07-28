@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace IC10_Extender
 {
-    [BepInPlugin("net.lawofsynergy.stationeers.ic10e", "IC10 Extender", "0.0.5.0")]
+    [BepInPlugin("net.lawofsynergy.stationeers.ic10e", "IC10 Extender", "0.0.6.0")]
     public class Plugin : BaseUnityPlugin
     {
         public static new ManualLogSource Logger;

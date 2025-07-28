@@ -18,7 +18,7 @@ using static Assets.Scripts.Objects.Electrical.ProgrammableChipException;
 
 namespace IC10_Extender
 {
-    public class IC10Extender
+    public static class IC10Extender
     {
         private static readonly Dictionary<string, ExtendedOpCode> opcodes = new Dictionary<string, ExtendedOpCode>();
         private static readonly List<Preprocessor> preprocessors = new List<Preprocessor>();

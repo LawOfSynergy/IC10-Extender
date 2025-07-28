@@ -33,7 +33,7 @@ namespace IC10_Extender
             return new Instance(chip, lineNumber, source);
         }
 
-        public override HelpString[] Params(int currentArgCount)
+        public override HelpString[] Params()
         {
             return Args;
         }

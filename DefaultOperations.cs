@@ -49,9 +49,9 @@ namespace IC10_Extender
             }
         }
 
-        public override HelpString[] Params(int currentArgCount)
+        public override HelpString[] Params()
         {
-            return args.Skip(currentArgCount).ToArray();
+            return args;
         }
 
         public override string Description()

@@ -20,7 +20,7 @@ using static IC10_Extender.PreprocessorOperation;
 namespace IC10_Extender
 {
 
-    public class Patches
+    public static class Patches
     {
         public static void Apply(Harmony harmony)
         {

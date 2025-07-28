@@ -30,7 +30,8 @@ namespace IC10_Extender
         /// currentArgCount can be ignored unless you are dealing with varargs.
         /// </summary>
         /// <returns></returns>
-        public abstract HelpString[] Params(int currentArgCount);
+        public abstract HelpString[] Params();
+        public virtual HelpString? VarArgParam() { return null; }
         
         /// <summary>
         /// The color to use for syntax highlighting. 
@@ -78,12 +79,17 @@ namespace IC10_Extender
 
         public string CommandExample(int spaceCount, string overrideColor = null)
         {
-            var args = Params(spaceCount);
+            var paramList = Params();
+            var varArg = VarArgParam();
             var result = "";
-            if (args == null) return result;
-            for (int i = spaceCount; i < args.Length; i++)
+
+            if (paramList == null && varArg == null) return result;
+
+            var args = (paramList ?? new HelpString[0]).Skip(spaceCount).Append(varArg ?? new HelpString(""));
+
+            foreach (var arg in args)
             {
-                result += (overrideColor != null ? args[i].Strip() : args[i]) + " ";
+                result += (overrideColor != null ? arg.Strip() : arg) + " ";
             }
             return overrideColor == null ? result.TrimEnd() : string.Format("<color={1}>{0}</color>", result.TrimEnd(), overrideColor);
         }

@@ -63,9 +63,9 @@ namespace IC10_Extender
                 var lineRef = type.GetField("LineOfCode", BindingFlags.Public | BindingFlags.Instance);
                 var opRef = type.GetField("Operation", BindingFlags.Public | BindingFlags.Instance);
 
-                lineRef?.SetValue(__instance, lineNumber.ToString());
-
                 Line line = ConstructionContext.Get(chip, lineNumber);
+                lineRef?.SetValue(__instance, line.Raw);
+
                 var op = line.Op;
 
                 if (op != null)

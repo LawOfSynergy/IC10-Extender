@@ -20,11 +20,7 @@ namespace IC10_Extender
         public static void Register()
         {
             IC10Extender.Register(new CommentPreprocessor());
-            if (
-                typeof(ProgrammableChip)
-                .GetMethod("PackAscii6", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
-                != null)
-            {
+            if (Plugin.IsBeta) {
                 IC10Extender.Register(new StringPreprocessor());
             }
 

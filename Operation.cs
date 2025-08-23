@@ -26,7 +26,17 @@ namespace IC10_Extender
 
         public abstract int Execute(int index);
 
-        public class Variable : ProgrammableChip._Operation.Variable
+        public interface IVariable
+        {
+            bool TryParseAliasAsJumpTagValue(out int value, bool throwException = true);
+        }
+
+        public interface IIndexVariable : IVariable
+        {
+            int GetVariableIndex(AliasTarget aliasTarget, bool throwError = true);
+        }
+
+        public class Variable : ProgrammableChip._Operation.Variable, IVariable
         {
             protected Variable(ProgrammableChip chip, int lineNumber, string code, InstructionInclude propertiesToUse, bool throwException = true)
                 : base(chip, lineNumber, code, propertiesToUse, throwException) { }
@@ -52,7 +62,7 @@ namespace IC10_Extender
             }
         }
 
-        protected class IndexVariable : ProgrammableChip._Operation.IndexVariable
+        protected class IndexVariable : ProgrammableChip._Operation.IndexVariable, IIndexVariable
         {
             public IndexVariable(ProgrammableChip chip, int lineNumber, string code, InstructionInclude propertiesToUse, bool throwException = true)
                 : base(chip, lineNumber, code, propertiesToUse, throwException) { }

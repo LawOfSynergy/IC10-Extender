@@ -11,8 +11,8 @@ namespace IC10_Extender
 {
     public static class Extensions
     {
-        public static readonly BindingFlags All = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
-        public static readonly BindingFlags AllDeclared = All | BindingFlags.DeclaredOnly;
+        public const BindingFlags All = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+        public const BindingFlags AllDeclared = All | BindingFlags.DeclaredOnly;
 
         public static FieldInfo DeclaredField(this Type type, string name)
         {

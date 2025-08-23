@@ -55,7 +55,7 @@ namespace IC10_Extender
             {
                 helpPage = UnityEngine.Object.Instantiate(window.ReferencePrefab, window.FunctionTransform);
                 helpPage.Setup(
-                    $"<color={Color()}>{OpCode}</color> {CommandExample(0)}",
+                    $"<color={Color()}>{OpCode}</color> {CommandExample()}",
                     Description(),
                     window.DefaultItemImage,
                     HelpReference.INSTRUCTION_STRING,
@@ -77,7 +77,7 @@ namespace IC10_Extender
             return helpPage;
         }
 
-        public string CommandExample(int spaceCount, string overrideColor = null)
+        public string CommandExample(int spaceCount = 0, string overrideColor = null)
         {
             var paramList = Params();
             var varArg = VarArgParam();

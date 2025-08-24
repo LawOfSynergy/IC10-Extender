@@ -14,14 +14,17 @@ namespace IC10_Extender
 
         public static void Store(ProgrammableChip chip, IEnumerable<Line> lines)
         {
-            context.Add(chip, lines.ToDictionary(line => (int)line.OriginatingLineNumber));
+            context.Add(chip, lines.ToDictionary(line => (int)line.LineNumber));
         }
 
         public static Line Get(ProgrammableChip chip, int lineNumber) {
-            Line result = context[chip][lineNumber];
+            return context[chip][lineNumber];
+        }
+
+        public static void Remove(ProgrammableChip chip, int lineNumber)
+        {
             context[chip].Remove(lineNumber);
             if (context[chip].Count == 0) context.Remove(chip);
-            return result;
         }
 
         public static void Clear(ProgrammableChip chip)

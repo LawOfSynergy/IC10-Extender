@@ -10,6 +10,8 @@ namespace IC10_Extender
     public class ChipWrapper
     {
         public readonly ProgrammableChip chip;
+        public PreExecute PreExecute = IC10Extender.NoOpPreExecute;
+        public PostExecute PostExecute = IC10Extender.NoOpPostExecute;
 
         public ChipWrapper(ProgrammableChip chip)
         {

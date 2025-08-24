@@ -43,7 +43,7 @@ and copying the dll.
 
 You will need to paste this to your `Assets/Assemblies/` folder.
 
-### Creating an OpCode
+## Creating an OpCode
 
 Adding an opcode has three parts.
 - The `Operation` abstract class represents the actual unit of work that is carried out when the opcode gets executed by the programmable chip.
@@ -104,7 +104,63 @@ You can of course, organize this however you want, but this is a nice, relativel
 
 Finally, in your mod entrypoint, just add `IC10Extender.Register(new MyOpCode());`
 
-### Using this as a soft dependency
+## Creating a Preprocessor
+
+A preprocessor is used to do manipulation of the source lines before it gets translated into Operation instances. Several preprocessors exist by default. They are executed in the order
+that they appear in the preprocessor list. An optional index has been provided so that mod authors can insert their preprocessor before another if necessary. The default processors, in order
+of registration/execution are:
+
+- CommentPreprocessor
+- StringPreprocessor (beta branch only at time of writing)
+- HashPreprocessor
+- BinaryLiteralPreprocessor
+- HexLiteralPreprocessor
+- LabelPreprocessor
+
+Preprocessors are structured similarly to ExtendedOpCodes in that the Preprocessor class is your factory and will provide information around what its PreprocessorOperation instances do.
+Unlike ExtendedOpCode, however, they operate on all of the lines simultaneously, presented to them as a list of Line structs. The simplest implementation of a preprocessesor operation only
+needs to implement the `Line? ProcessLine(Line line);` method. This processes an individual line. By default if null is returned, then the line is deleted from the list, and will not be carried
+forward for further processing. More complicated preprocessor implementations can override `IEnumerable<Line> DoPass(IEnumerable<Line> fullScript)` or 
+`IEnumerable<Line> Process(IEnumerable<Line> fullScript)` for more control as needed.
+
+## Opcode Lifecycle operations
+
+This library now supports the ability to inject logic before or after the execution of an opcode. This can be done globally by adding a delegate to `IC10Extender.PreExecute` or 
+`IC10Extender.PostExecute`
+
+e.g.
+
+```c#
+public void LogExec(OpContext op, ref int index) {
+    Logger.LogInfo($"Executed: {op.Raw}, jumped to {index} afterward");
+}
+
+// somewhere else in your code
+IC10Extender.PostExecute+= LogExec;
+```
+
+Preprocessors can also do this for an indiviual line instead of globally, by adding to the Pre- and Post- Execute delegates for the individual line that they want to attach it to. The line's
+lifecycle delegates will be appened to the global lifecycle delegates upon creation of the LineOfCode instance.
+
+### Type Checking operations
+
+In order to allow for lifecycle operations on vanilla commands (technically, any operation not registered with this library, not just vanilla), all operations will be wrapped in an OpContext
+constructed from the original operation and the Line associated with this LineOfCode. Strictly speaking, the OpContext itself is also wrapped by an OperationWrapper in order to be assignable to
+the `ProgrammableChip._Operation` class. So in general the object wrapping chain will look like one of the following:
+
+```
+# if the leaf operation is from this library
+ProgrammableChip.LineOfCode -> OperationWrapper -> OpContext -> <author defined Operation subclass>
+
+# otherwise (vanilla, or modded and directly subclassing ProgrammableChip._Operation)
+ProgrammableChip.LineOfCode ->  OperationWrapper -> OpContext -> ReverseWrapper -> <vanilla or externally modded _Operation subclass>
+```
+
+## Custom Constants
+
+This library has a mechanism for registing custom constants, however I have not explicitly patched them into usage yet, so I am not sure this system is currently functional.
+
+## Using this as a soft dependency
 
 [This](https://risk-of-thunder.github.io/R2Wiki/Mod-Creation/C%23-Programming/Mod-Compatibility%3A-Soft-Dependency/) is a decent article on how to add a soft dependency
 
@@ -117,6 +173,8 @@ TBWritten as I am still working on fully understanding them myself.
 However, you can look at [Direct Reference Extensions](https://github.com/LawOfSynergy/IC10E_Direct_Reference_Extension/blob/main/Plugin.cs) or crack
 open the game's Assembly-CSharp.dll file with a tool like dotPeek and poke around in Assets.Scripts.Objects.Electrical.ProgrammableChip for examples
 of them in use.
+
+A future update is planned to include a fluent style builder to make the construction and usage of these variables more intuitive/understandable.
 
 
 # For Contibutors (or building locally)

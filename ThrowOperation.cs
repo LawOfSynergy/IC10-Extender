@@ -40,7 +40,7 @@ namespace IC10_Extender
 
         public override string Description()
         {
-            return "Forces the chip to stop with an error. May optionally receive a value to set the containing device's <color=\"orange\">Setting</color> to.";
+            return "Forces the chip to stop with an error. May optionally receive a value to set the containing device's <color=orange>Setting</color> to.";
         }
 
         public class Instance : Operation

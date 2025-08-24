@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using UI.ImGuiUi.Debug;
+using static IC10_Extender.PreprocessorOperation;
 
 namespace IC10_Extender
 {
@@ -44,23 +45,34 @@ namespace IC10_Extender
 
         public abstract Line? ProcessLine(Line line);
 
-        public struct Line
+        public virtual IEnumerable<Line> ReNumber(IEnumerable<Line> fullScript)
         {
-            public string Raw;
-            public readonly ushort OriginatingLineNumber;
-            public Operation Op;
+            return fullScript.Select((Line line, int index) => { line.LineNumber = (ushort)index; return line; });
+        }
+    }
 
-            public Line(string raw, ushort originatingLineNumber, Operation op = null)
-            {
-                Raw = raw;
-                OriginatingLineNumber = originatingLineNumber;
-                Op = op;
-            }
+    public struct Line
+    {
+        public string Raw;
+        public readonly ushort OriginatingLineNumber;
+        public ushort LineNumber;
+        public Operation ForcedOp;
+        public PreExecute PreExecute;
+        public PostExecute PostExecute;
 
-            public new string ToString()
-            {
-                return $"{OriginatingLineNumber}: {Raw}";
-            }
+        public Line(string raw, ushort originatingLineNumber, Operation forcedOp = null)
+        {
+            Raw = raw;
+            OriginatingLineNumber = originatingLineNumber;
+            LineNumber = originatingLineNumber;
+            ForcedOp = forcedOp;
+            PreExecute = IC10Extender.NoOpPreExecute;
+            PostExecute = IC10Extender.NoOpPostExecute;
+        }
+
+        public new string ToString()
+        {
+            return $"{OriginatingLineNumber}: {Raw}";
         }
     }
 }

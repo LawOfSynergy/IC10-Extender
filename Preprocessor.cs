@@ -19,6 +19,10 @@ namespace IC10_Extender
         public abstract string HelpEntryDescription { get; }
 
         public abstract PreprocessorOperation Create(ChipWrapper chip);
+        public virtual SyntaxHighlighter Highlighter()
+        {
+            return new SyntaxHighlighter();
+        }
 
         public virtual void InitHelpPage(ScriptHelpWindow window)
         {
@@ -48,6 +52,19 @@ namespace IC10_Extender
         public HelpReference HelpPage()
         {
             return helpPage;
+        }
+    }
+
+    public class SyntaxHighlighter
+    {
+        public virtual string Highlight(string script)
+        {
+            return string.Join("\n", script.Split('\n').Select(HighlightLine));
+        }
+
+        public virtual string HighlightLine(string line)
+        {
+            return line;
         }
     }
 }

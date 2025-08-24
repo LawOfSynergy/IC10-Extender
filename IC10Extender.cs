@@ -18,12 +18,17 @@ using static Assets.Scripts.Objects.Electrical.ProgrammableChipException;
 
 namespace IC10_Extender
 {
+    public delegate void PreExecute(OpContext op);
+    public delegate void PostExecute(OpContext op, ref int index);
+
     public static class IC10Extender
     {
         private static readonly Dictionary<string, ExtendedOpCode> opcodes = new Dictionary<string, ExtendedOpCode>();
         private static readonly List<Preprocessor> preprocessors = new List<Preprocessor>();
         private static readonly Dictionary<string, ProgrammableChip.Constant> constants = new Dictionary<string, ProgrammableChip.Constant>();
         private static readonly Dictionary<string, string> colors  = new Dictionary<string, string>();
+        public static PreExecute PreExecute = NoOpPreExecute;
+        public static PostExecute PostExecute = NoOpPostExecute;
 
 
         public static Dictionary<string, ExtendedOpCode> OpCodes => new Dictionary<string, ExtendedOpCode>(opcodes);
@@ -88,5 +93,8 @@ namespace IC10_Extender
         public static bool HasOpCode(string name) => opcodes.ContainsKey(name);
         public static bool HasConstant(string name) => constants.ContainsKey(name);
         public static bool HasColor(string name) => colors.ContainsKey(name);
+
+        public static void NoOpPreExecute(OpContext op) { }
+        public static void NoOpPostExecute(OpContext op, ref int index) { }
     }
 }

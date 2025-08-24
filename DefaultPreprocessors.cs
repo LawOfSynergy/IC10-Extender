@@ -121,7 +121,7 @@ namespace IC10_Extender
                     var tokens = line.Raw.Split(new char[0], StringSplitOptions.RemoveEmptyEntries);
                     if (tokens.Length == 1 && tokens[0].Length > 2 && tokens[0][tokens[0].Length - 1] == ':')
                     {
-                        line.Op = new ProgrammableChip._NOOP_Operation(Chip.chip, line.OriginatingLineNumber);
+                        line.ForcedOp = new ProgrammableChip._NOOP_Operation(Chip.chip, line.OriginatingLineNumber);
                         string key = tokens[0].Substring(0, tokens[0].Length - 1);
                         if (Chip.chip._JumpTags.ContainsKey(key))
                         {

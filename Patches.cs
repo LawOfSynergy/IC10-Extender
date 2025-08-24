@@ -20,8 +20,8 @@ using System.Text.RegularExpressions;
 using UI.Tooltips;
 using UnityEngine;
 using static Assets.Scripts.Objects.Electrical.ProgrammableChipException;
-using static IC10_Extender.PreprocessorOperation;
 using static Networking.Servers.WorldPrefs.UI;
+using static UnityEngine.Random;
 
 namespace IC10_Extender
 {
@@ -31,7 +31,7 @@ namespace IC10_Extender
         [HarmonyDebug]
         [HarmonyPrefix]
         [HarmonyPatch(typeof(ProgrammableChip._LineOfCode), MethodType.Constructor, new Type[] { typeof(ProgrammableChip), typeof(string), typeof(int) })]
-        public static bool LineOfCodeCTOR(ProgrammableChip._LineOfCode __instance, ProgrammableChip chip, int lineNumber)
+        public static bool LineOfCodePreCTOR(ProgrammableChip._LineOfCode __instance, ProgrammableChip chip, int lineNumber, out bool __state)
         {
             try
             { 
@@ -41,14 +41,14 @@ namespace IC10_Extender
 
                 Line line = ConstructionContext.Get(chip, lineNumber);
 
-                var op = line.Op;
+                var op = line.ForcedOp;
 
-                //if line was given an operation during preprocessing, use that operation
+                //if line was given a forced operation during preprocessing, use that operation
                 if (op != null)
                 {
                     lineRef.SetValue(__instance, line.Raw);
-                    opRef.SetValue(__instance, (ProgrammableChip._Operation)op);
-                    return false;
+                    opRef.SetValue(__instance, (ProgrammableChip._Operation)new OpContext(op, line));
+                    return __state = false;
                 }
 
                 var tokens = line.Raw.Split().Where(token => !string.IsNullOrEmpty(token)).ToArray();
@@ -56,8 +56,8 @@ namespace IC10_Extender
                 if (tokens.Length == 0)
                 {
                     lineRef.SetValue(__instance, line.Raw);
-                    opRef.SetValue(__instance, new ProgrammableChip._NOOP_Operation(chip, lineNumber));
-                    return false;
+                    opRef.SetValue(__instance, (ProgrammableChip._Operation)new OpContext(new ProgrammableChip._NOOP_Operation(chip, lineNumber), line));
+                    return __state = false;
                 }
 
                 var opCode = IC10Extender.OpCode(tokens[0]);
@@ -65,11 +65,11 @@ namespace IC10_Extender
                 if (opCode != null)
                 {
                     lineRef.SetValue(__instance, line.Raw);
-                    opRef.SetValue(__instance, (ProgrammableChip._Operation)opCode.Create(new ChipWrapper(chip), lineNumber, tokens));
-                    return false;
+                    opRef.SetValue(__instance, (ProgrammableChip._Operation)new OpContext(opCode.Create(new ChipWrapper(chip), lineNumber, tokens), line));
+                    return __state = false;
                 }
 
-                return true; //if none of the above, default to vanilla execution
+                return __state = true; //if none of the above, default to vanilla execution, then wrap the operation in a postfix
             }
             catch (Exception ex)
             {
@@ -79,6 +79,23 @@ namespace IC10_Extender
         }
 
         [HarmonyDebug]
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(ProgrammableChip._LineOfCode), MethodType.Constructor, new Type[] { typeof(ProgrammableChip), typeof(string), typeof(int) })]
+        public static void LineOfCodePostCTOR(ProgrammableChip._LineOfCode __instance, ProgrammableChip chip, int lineNumber, ref bool __state)
+        {
+            if(__state) //vanilla logic ran. Wrap in OpContext
+            {
+                var type = typeof(ProgrammableChip._LineOfCode);
+                var opRef = type.GetField("Operation", BindingFlags.Public | BindingFlags.Instance);
+                Line line = ConstructionContext.Get(chip, lineNumber);
+
+                opRef.SetValue(__instance, new OperationWrapper(new OpContext(new ReverseWrapper((ProgrammableChip._Operation)opRef.GetValue(__instance)), line)));
+            }
+
+            // clean up construction state regardless of modded or vanilla
+            ConstructionContext.Remove(chip, lineNumber);
+        }
+
         [HarmonyILManipulator]
         [HarmonyPatch(typeof(ProgrammableChip), "SetSourceCode", new Type[] {typeof(string)})]
         public static void SetSourceCode(ILContext il, ILLabel returnLabel)
@@ -119,6 +136,7 @@ namespace IC10_Extender
                             throw ex.Wrap(i);
                         }
                     }
+                    ConstructionContext.Clear(chip);
                 }
                 catch (ProgrammableChipException ex)
                 {
@@ -133,16 +151,32 @@ namespace IC10_Extender
             c.Emit(OpCodes.Br, returnLabel);
         }
 
-        [HarmonyDebug]
-        [HarmonyPostfix]
-        [HarmonyPatch(typeof(Localization), nameof(Localization.ReplaceCommands))]
-        public static void HighlightSyntax(ref string masterString, ref List<string> acceptedStrings, ref List<string> acceptedJumps, EditorLineOfCode line = null)
+        [HarmonyILManipulator]
+        [HarmonyPatch(typeof(Localization), nameof(Localization.ParseScriptLine))]
+        public static void HighlightSyntax(ILContext il, ILLabel returnLabel)
         {
+            ILCursor c = new ILCursor(il);
+            c
+            .GotoNext(MoveType.After, x => x.MatchCall(typeof(Localization).GetMethod(nameof(Localization.ReplaceDeviceReferences), Extensions.AllDeclared)))
+            .Emit(OpCodes.Ldloca, 1)
+            .Emit(OpCodes.Ldarg_1)
+            .Emit(OpCodes.Ldarg_2)
+            .Emit(OpCodes.Ldarg_3)
+            .Emit(OpCodes.Call, typeof(CommonPatches).GetMethod(nameof(ApplyHighlight), Extensions.AllDeclared));
+        }
+
+        private static void ApplyHighlight(ref string masterString, ref List<string> acceptedStrings, ref List<string> acceptedJumps, EditorLineOfCode line = null)
+        {
+            foreach(var preprocessor in IC10Extender.Preprocessors)
+            {
+                masterString = preprocessor.Highlighter().Highlight(masterString);
+            }
+            
             string format = "<color={1}>{0}</color>";
 
 
             var original = masterString;
-            
+
             masterString = masterString.TrimStart(out string prefix);
             foreach (var opcode in IC10Extender.OpCodes.Values)
             {
@@ -164,7 +198,6 @@ namespace IC10_Extender
             masterString = prefix + masterString;
         }
 
-        [HarmonyDebug]
         [HarmonyPostfix]
         [HarmonyPatch(typeof(Localization), nameof(Localization.ParseScriptLine))]
         public static void ApplyColors(ref string __result)
@@ -182,7 +215,6 @@ namespace IC10_Extender
             }
         }
 
-        [HarmonyDebug]
         [HarmonyPrefix]
         [HarmonyPatch(typeof(ScriptHelpWindow), nameof(ScriptHelpWindow.Initialize))]
         public static bool InitHelpPages(ScriptHelpWindow __instance)
@@ -206,9 +238,14 @@ namespace IC10_Extender
                     sorted.Do(opcode => 
                     {
                         var inst = IC10Extender.OpCode(opcode);
-                        if (inst != null && !inst.Deprecated) {
-                            inst.InitHelpPage(__instance);
-                        } else
+                        if (inst != null) 
+                        {
+                            if (!inst.Deprecated) 
+                            { 
+                                inst.InitHelpPage(__instance);
+                            }
+                        } 
+                        else
                         {
                             ScriptCommand inst2 = (ScriptCommand)Enum.Parse(typeof(ScriptCommand), opcode);
                             if(!LogicBase.IsDeprecated(inst2))
@@ -231,7 +268,6 @@ namespace IC10_Extender
             }
         }
 
-        [HarmonyDebug]
         [HarmonyILManipulator]
         [HarmonyPatch(typeof(ScriptHelpWindow), nameof(ScriptHelpWindow.ForceSearch))]
         public static void ShowHelpPage(ILContext il)
@@ -258,7 +294,6 @@ namespace IC10_Extender
             c.Emit(OpCodes.Stloc_0);
         }
 
-        [HarmonyDebug]
         [HarmonyILManipulator]
         [HarmonyPatch(typeof(EditorLineOfCode), nameof(EditorLineOfCode.HandleUpdate))]
         public static void EmbedOnHoverHelpWindow(ILContext il, ILLabel returnLabel)

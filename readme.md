@@ -104,6 +104,36 @@ You can of course, organize this however you want, but this is a nice, relativel
 
 Finally, in your mod entrypoint, just add `IC10Extender.Register(new MyOpCode());`
 
+### Opcode Lifecycle operations
+
+This library now supports the ability to inject logic before or after the execution of an opcode. This can be done globally by adding a delegate to `IC10Extender.PreExecute` or 
+`IC10Extender.PostExecute`, per chip using the same fields on the `ChipWrapper` instance, or per line using the same fields on the `Line` instance.
+
+e.g.
+
+```c#
+public void LogExec(OpContext op, ref int index) {
+    Logger.LogInfo($"Executed: {op.Raw}, jumped to {index} afterward");
+}
+
+// somewhere else in your code
+IC10Extender.PostExecute+= LogExec;
+```
+
+#### Type Checking operations
+
+In order to allow for lifecycle operations on vanilla commands (technically, any operation not registered with this library, not just vanilla), all operations will be wrapped in an OpContext
+constructed from the original operation and the Line associated with this LineOfCode. Strictly speaking, the OpContext itself is also wrapped by an OperationWrapper in order to be assignable to
+the `ProgrammableChip._Operation` class. So in general the object wrapping chain will look like one of the following:
+
+```
+# if the leaf operation is from this library
+ProgrammableChip.LineOfCode -> OperationWrapper -> OpContext -> <author defined Operation subclass>
+
+# otherwise (vanilla, or modded and directly subclassing ProgrammableChip._Operation)
+ProgrammableChip.LineOfCode ->  OperationWrapper -> OpContext -> ReverseWrapper -> <vanilla or externally modded _Operation subclass>
+```
+
 ## Creating a Preprocessor
 
 A preprocessor is used to do manipulation of the source lines before it gets translated into Operation instances. Several preprocessors exist by default. They are executed in the order
@@ -123,42 +153,14 @@ needs to implement the `Line? ProcessLine(Line line);` method. This processes an
 forward for further processing. More complicated preprocessor implementations can override `IEnumerable<Line> DoPass(IEnumerable<Line> fullScript)` or 
 `IEnumerable<Line> Process(IEnumerable<Line> fullScript)` for more control as needed.
 
-## Opcode Lifecycle operations
-
-This library now supports the ability to inject logic before or after the execution of an opcode. This can be done globally by adding a delegate to `IC10Extender.PreExecute` or 
-`IC10Extender.PostExecute`
-
-e.g.
-
-```c#
-public void LogExec(OpContext op, ref int index) {
-    Logger.LogInfo($"Executed: {op.Raw}, jumped to {index} afterward");
-}
-
-// somewhere else in your code
-IC10Extender.PostExecute+= LogExec;
-```
-
-Preprocessors can also do this for an indiviual line instead of globally, by adding to the Pre- and Post- Execute delegates for the individual line that they want to attach it to. The line's
-lifecycle delegates will be appened to the global lifecycle delegates upon creation of the LineOfCode instance.
-
-### Type Checking operations
-
-In order to allow for lifecycle operations on vanilla commands (technically, any operation not registered with this library, not just vanilla), all operations will be wrapped in an OpContext
-constructed from the original operation and the Line associated with this LineOfCode. Strictly speaking, the OpContext itself is also wrapped by an OperationWrapper in order to be assignable to
-the `ProgrammableChip._Operation` class. So in general the object wrapping chain will look like one of the following:
-
-```
-# if the leaf operation is from this library
-ProgrammableChip.LineOfCode -> OperationWrapper -> OpContext -> <author defined Operation subclass>
-
-# otherwise (vanilla, or modded and directly subclassing ProgrammableChip._Operation)
-ProgrammableChip.LineOfCode ->  OperationWrapper -> OpContext -> ReverseWrapper -> <vanilla or externally modded _Operation subclass>
-```
-
 ## Custom Constants
 
 This library has a mechanism for registing custom constants, however I have not explicitly patched them into usage yet, so I am not sure this system is currently functional.
+
+## Compatability Constraints
+
+If you have opcodes or preprocessors that depend on the presence or absence of specific functionality, you can optionally specify a lambda function during registration that checks for the requirement.
+You can use instances of the Compatability class for already defined checks, or define your own named checks.
 
 ## Using this as a soft dependency
 

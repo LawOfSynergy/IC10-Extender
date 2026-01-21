@@ -49,30 +49,10 @@ namespace IC10_Extender
         {
             return fullScript.Select((Line line, int index) => { line.LineNumber = (ushort)index; return line; });
         }
-    }
 
-    public struct Line
-    {
-        public string Raw;
-        public readonly ushort OriginatingLineNumber;
-        public ushort LineNumber;
-        public Operation ForcedOp;
-        public PreExecute PreExecute;
-        public PostExecute PostExecute;
-
-        public Line(string raw, ushort originatingLineNumber, Operation forcedOp = null)
+        public static PreprocessorOperation NoOp(ChipWrapper chip)
         {
-            Raw = raw;
-            OriginatingLineNumber = originatingLineNumber;
-            LineNumber = originatingLineNumber;
-            ForcedOp = forcedOp;
-            PreExecute = IC10Extender.NoOpPreExecute;
-            PostExecute = IC10Extender.NoOpPostExecute;
-        }
-
-        public new string ToString()
-        {
-            return $"{OriginatingLineNumber}: {Raw}";
-        }
+            return new NoOpProcessorOperation(chip);
+        }   
     }
 }

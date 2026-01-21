@@ -2,7 +2,6 @@
 using Assets.Scripts.UI;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection.Emit;
 using System.Text;
 using System.Threading.Tasks;
@@ -52,19 +51,6 @@ namespace IC10_Extender
         public HelpReference HelpPage()
         {
             return helpPage;
-        }
-    }
-
-    public class SyntaxHighlighter
-    {
-        public virtual string Highlight(string script)
-        {
-            return string.Join("\n", script.Split('\n').Select(HighlightLine));
-        }
-
-        public virtual string HighlightLine(string line)
-        {
-            return line;
         }
     }
 }

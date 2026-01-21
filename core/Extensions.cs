@@ -1,10 +1,13 @@
 ﻿using Assets.Scripts.Objects.Electrical;
+using Assets.Scripts.Util;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using static Assets.Scripts.Localization;
 using static Assets.Scripts.Objects.Electrical.ProgrammableChipException;
 
 namespace IC10_Extender
@@ -37,6 +40,22 @@ namespace IC10_Extender
             return field;
         }
 
+        /**
+         * internal to restrict invalidation/recreation to this framework only
+         */
+        internal static ChipWrapper Wrap(this ProgrammableChip chip, bool forceNew = false)
+        {
+            return ChipWrapper.For(chip, forceNew);
+        }
+
+        /**
+         * public overload that does not force recreation
+         */
+        public static ChipWrapper Wrap(this ProgrammableChip chip)
+        {
+            return ChipWrapper.For(chip);
+        }
+
         public static MethodInfo GetMethod(this Type type, string name, params Type[] argTypes)
         {
             return type.GetMethod(name, AllDeclared, null, argTypes, null);
@@ -66,6 +85,15 @@ namespace IC10_Extender
             return result;
         }
 
+        public static int IndexOfWhitespace(this string src)
+        {
+            for (int i = 0; i < src.Length; i++)
+            {
+                if (char.IsWhiteSpace(src[i])) return i;
+            }
+            return -1;
+        }
+
         public static ProgrammableChipException Wrap(this Exception ex, int lineNumber)
         {
             switch(ex)
@@ -73,6 +101,22 @@ namespace IC10_Extender
                 case ProgrammableChipException pce: return pce;
                 default: return new ProgrammableChipException(ICExceptionType.Unknown, lineNumber);
             }
+        }
+
+        public static RegexResult GetMatches(this Regex regex, string masterString)
+        {
+            string input = Regexes.CommentLite.Replace(masterString, "");
+            MatchCollection matchCollection = regex.Matches(input);
+            RegexResult regexResult = new RegexResult();
+            regexResult.Full = new string[matchCollection.Count];
+            regexResult.Names = new string[matchCollection.Count];
+            for (int i = 0; i < matchCollection.Count; i++)
+            {
+                regexResult.Full[i] = matchCollection[i].Groups[0].Value;
+                regexResult.Names[i] = matchCollection[i].Groups[1].Value;
+            }
+
+            return regexResult;
         }
     }
 }

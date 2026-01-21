@@ -1,27 +1,17 @@
 ﻿using Assets.Scripts;
-using Assets.Scripts.Objects;
 using Assets.Scripts.Objects.Electrical;
 using Assets.Scripts.Objects.Motherboards;
 using Assets.Scripts.UI;
 using Assets.Scripts.Util;
 using HarmonyLib;
-using JetBrains.Annotations;
-using Microsoft.SqlServer.Server;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
-using Reagents;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Text;
-using System.Text.RegularExpressions;
 using UI.Tooltips;
-using UnityEngine;
-using static Assets.Scripts.Objects.Electrical.ProgrammableChipException;
-using static Networking.Servers.WorldPrefs.UI;
-using static UnityEngine.Random;
 
 namespace IC10_Extender
 {
@@ -36,7 +26,6 @@ namespace IC10_Extender
             try
             { 
                 var type = typeof(ProgrammableChip._LineOfCode);
-                var lineRef = type.GetField("LineOfCode", BindingFlags.Public | BindingFlags.Instance);
                 var opRef = type.GetField("Operation", BindingFlags.Public | BindingFlags.Instance);
 
                 Line line = ConstructionContext.Get(chip, lineNumber);
@@ -46,7 +35,6 @@ namespace IC10_Extender
                 //if line was given a forced operation during preprocessing, use that operation
                 if (op != null)
                 {
-                    lineRef.SetValue(__instance, line.Raw);
                     opRef.SetValue(__instance, (ProgrammableChip._Operation)new OpContext(op, line));
                     return __state = false;
                 }
@@ -55,7 +43,6 @@ namespace IC10_Extender
                 //if line is empty, operation is noop
                 if (tokens.Length == 0)
                 {
-                    lineRef.SetValue(__instance, line.Raw);
                     opRef.SetValue(__instance, (ProgrammableChip._Operation)new OpContext(new ProgrammableChip._NOOP_Operation(chip, lineNumber), line));
                     return __state = false;
                 }
@@ -64,8 +51,7 @@ namespace IC10_Extender
                 //if opcode exists in this library, use that opcode
                 if (opCode != null)
                 {
-                    lineRef.SetValue(__instance, line.Raw);
-                    opRef.SetValue(__instance, (ProgrammableChip._Operation)new OpContext(opCode.Create(new ChipWrapper(chip), lineNumber, tokens), line));
+                    opRef.SetValue(__instance, (ProgrammableChip._Operation)new OpContext(opCode.Create(chip.Wrap(), lineNumber, tokens), line));
                     return __state = false;
                 }
 
@@ -83,19 +69,26 @@ namespace IC10_Extender
         [HarmonyPatch(typeof(ProgrammableChip._LineOfCode), MethodType.Constructor, new Type[] { typeof(ProgrammableChip), typeof(string), typeof(int) })]
         public static void LineOfCodePostCTOR(ProgrammableChip._LineOfCode __instance, ProgrammableChip chip, int lineNumber, ref bool __state)
         {
+            var type = typeof(ProgrammableChip._LineOfCode);
+            var opRef = type.GetField("Operation", BindingFlags.Public | BindingFlags.Instance);
+            var lineRef = type.GetField("LineOfCode", BindingFlags.Public | BindingFlags.Instance);
+            Line line = ConstructionContext.Get(chip, lineNumber);
+            
             if(__state) //vanilla logic ran. Wrap in OpContext
             {
-                var type = typeof(ProgrammableChip._LineOfCode);
-                var opRef = type.GetField("Operation", BindingFlags.Public | BindingFlags.Instance);
-                Line line = ConstructionContext.Get(chip, lineNumber);
-
                 opRef.SetValue(__instance, new OperationWrapper(new OpContext(new ReverseWrapper((ProgrammableChip._Operation)opRef.GetValue(__instance)), line)));
             }
+
+            Plugin.Logger.LogInfo($"Line.Raw: {line.Raw}, Line.Display:{line.Display}, Before set: {__instance.LineOfCode}");
+            // set LineOfCode to display value now that operation has finished constructing, regardless of modded or vanilla
+            lineRef.SetValue(__instance, line.Display);
+            Plugin.Logger.LogInfo($"After set: {__instance.LineOfCode}");
 
             // clean up construction state regardless of modded or vanilla
             ConstructionContext.Remove(chip, lineNumber);
         }
 
+        [HarmonyDebug]
         [HarmonyILManipulator]
         [HarmonyPatch(typeof(ProgrammableChip), "SetSourceCode", new Type[] {typeof(string)})]
         public static void SetSourceCode(ILContext il, ILLabel returnLabel)
@@ -111,15 +104,17 @@ namespace IC10_Extender
             .Emit(OpCodes.Ldloc_0)
             .EmitDelegate<Action<ProgrammableChip, string[]>>((chip, src) =>
             {
+                //force construction of a new wrapper and invalidate old one to allow resource cleanup
+                var wrapper = chip.Wrap(true);
                 try {
                     var lines = src.Select((line, index) => new Line(line, (ushort)index));
 
                     foreach (var preprocessor in IC10Extender.Preprocessors)
                     {
-                        lines = preprocessor.Create(new ChipWrapper(chip)).Process(lines).ToList();
+                        lines = preprocessor.Create(wrapper).Process(lines).ToList();
                     }
 
-                    chip.SourceCode = new AsciiString(string.Join("\n", lines.Select(line => line.Raw).ToArray()));
+                    chip.SourceCode = new AsciiString(string.Join("\n", lines.Select(line => line.Display).ToArray()));
 
                     ConstructionContext.Store(chip, lines);
                     var tmp = lines.ToArray();
@@ -151,11 +146,28 @@ namespace IC10_Extender
             c.Emit(OpCodes.Br, returnLabel);
         }
 
+        [HarmonyDebug]
+        [HarmonyILManipulator]
+        [HarmonyPatch(typeof(Localization), nameof(Localization.ReplaceNumbers))]
+        public static void SkipNativeNumberPreprocessorHighlighting(ILContext il, ILLabel returnLabel)
+        {
+            ILCursor c = new ILCursor(il);
+
+            ILLabel jump = c.DefineLabel();
+
+            c
+            .Emit(OpCodes.Br, jump)
+            .GotoNext(MoveType.AfterLabel, x => x.MatchLdarg(0), x => x.MatchCall(typeof(Localization).GetMethod(nameof(Localization.GetMatchesForNumbers), Extensions.AllDeclared)))
+            .MarkLabel(jump);
+        }
+
+        [HarmonyDebug]
         [HarmonyILManipulator]
         [HarmonyPatch(typeof(Localization), nameof(Localization.ParseScriptLine))]
         public static void HighlightSyntax(ILContext il, ILLabel returnLabel)
         {
             ILCursor c = new ILCursor(il);
+
             c
             .GotoNext(MoveType.After, x => x.MatchCall(typeof(Localization).GetMethod(nameof(Localization.ReplaceDeviceReferences), Extensions.AllDeclared)))
             .Emit(OpCodes.Ldloca, 1)
@@ -167,7 +179,7 @@ namespace IC10_Extender
 
         private static void ApplyHighlight(ref string masterString, ref List<string> acceptedStrings, ref List<string> acceptedJumps, EditorLineOfCode line = null)
         {
-            foreach(var preprocessor in IC10Extender.Preprocessors)
+            foreach (var preprocessor in IC10Extender.Preprocessors)
             {
                 masterString = preprocessor.Highlighter().Highlight(masterString);
             }
@@ -178,6 +190,10 @@ namespace IC10_Extender
             var original = masterString;
 
             masterString = masterString.TrimStart(out string prefix);
+
+            int index = masterString.IndexOfWhitespace();
+            masterString = ProgrammableChip.StripColorTags(index == -1 ? masterString : masterString.Substring(0, index)) + (index == -1 ? string.Empty : masterString.Substring(index));
+
             foreach (var opcode in IC10Extender.OpCodes.Values)
             {
                 string name = opcode.OpCode;
@@ -190,14 +206,16 @@ namespace IC10_Extender
 
                         int spaceCount = copy.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length - 1;
                         string fragment = masterString.Substring(len, masterString.Length - len);
-                        masterString = $"{string.Format(format, name, opcode.Color())}{fragment.TrimEnd()} {opcode.CommandExample(spaceCount, "darkgrey")}";
-                        break;
+                        masterString = $"{prefix}{string.Format(format, name, opcode.Color())}{fragment.TrimEnd()} {opcode.CommandExample(spaceCount, "darkgrey")}";
+                        return;
                     }
                 }
             }
-            masterString = prefix + masterString;
+            
+            masterString = original;
         }
 
+        [HarmonyDebug]
         [HarmonyPostfix]
         [HarmonyPatch(typeof(Localization), nameof(Localization.ParseScriptLine))]
         public static void ApplyColors(ref string __result)
@@ -215,6 +233,7 @@ namespace IC10_Extender
             }
         }
 
+        [HarmonyDebug]
         [HarmonyPrefix]
         [HarmonyPatch(typeof(ScriptHelpWindow), nameof(ScriptHelpWindow.Initialize))]
         public static bool InitHelpPages(ScriptHelpWindow __instance)
@@ -268,6 +287,7 @@ namespace IC10_Extender
             }
         }
 
+        [HarmonyDebug]
         [HarmonyILManipulator]
         [HarmonyPatch(typeof(ScriptHelpWindow), nameof(ScriptHelpWindow.ForceSearch))]
         public static void ShowHelpPage(ILContext il)
@@ -294,6 +314,7 @@ namespace IC10_Extender
             c.Emit(OpCodes.Stloc_0);
         }
 
+        [HarmonyDebug]
         [HarmonyILManipulator]
         [HarmonyPatch(typeof(EditorLineOfCode), nameof(EditorLineOfCode.HandleUpdate))]
         public static void EmbedOnHoverHelpWindow(ILContext il, ILLabel returnLabel)
@@ -321,17 +342,5 @@ namespace IC10_Extender
 
             c.Emit(OpCodes.Brfalse, returnLabel);
         }
-    }
-
-    //patches that ONLY work in the release branch
-    public static class ReleasePatches
-    {
-
-    }
-
-    //patches that ONLY work in the beta branch
-    public static class BetaPatches
-    {
-
     }
 }

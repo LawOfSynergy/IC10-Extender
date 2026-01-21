@@ -372,63 +372,14 @@ namespace IC10_Extender
         public static implicit operator ProgrammableChip._Operation(Operation op) => (op is ReverseWrapper wrap) ? wrap.op : new OperationWrapper(op);
         public static implicit operator Operation(ProgrammableChip._Operation op) => (op is OperationWrapper wrap) ? wrap.op : new ReverseWrapper(op);
 
-        
-    }
-    public class OperationWrapper : ProgrammableChip._Operation
-    {
-        public readonly Operation op;
-        public OperationWrapper(Operation op) : base(op.Chip.chip, op.LineNumber)
+        public static Operation NoOp(ChipWrapper chip, int lineNumber)
         {
-            this.op = op;
+            return NoOp(chip.chip, lineNumber);
         }
 
-        public override int Execute(int index)
+        public static Operation NoOp(ProgrammableChip chip, int lineNumber)
         {
-            return op.Execute(index);
-        }
-    }
-
-    public class ReverseWrapper : Operation
-    {
-        public readonly ProgrammableChip._Operation op;
-
-        public ReverseWrapper(ProgrammableChip._Operation op) : base(new ChipWrapper(op._Chip), op._LineNumber)
-        {
-            this.op = op;
-        }
-
-        public override int Execute(int index)
-        {
-            return op.Execute(index);
-        }
-    }
-
-    public class OpContext : Operation
-    {
-        private Operation op;
-        private string raw;
-        private PreExecute PreExecute;
-        private PostExecute PostExecute;
-
-
-        public OpContext(Operation op, Line line) : base(op.Chip, op.LineNumber)
-        {
-            this.op = op;
-            raw = line.Raw;
-
-            PreExecute = line.PreExecute;
-            PostExecute = line.PostExecute;
-        }
-
-        public override int Execute(int index)
-        {
-            var preExec = IC10Extender.PreExecute + Chip.PreExecute + PreExecute;
-            preExec(this);
-            var result = op.Execute(index);
-            var postExec = IC10Extender.PostExecute + Chip.PostExecute + PostExecute;
-            postExec(this, ref result);
-
-            return result;
+            return new OperationWrapper(new ProgrammableChip._NOOP_Operation(chip, lineNumber));
         }
     }
 }

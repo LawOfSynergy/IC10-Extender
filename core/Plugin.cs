@@ -13,12 +13,11 @@ using System.Threading.Tasks;
 
 namespace IC10_Extender
 {
-    [BepInPlugin("net.lawofsynergy.stationeers.ic10e", "IC10 Extender", "0.0.6.1")]
+
+    [BepInPlugin("net.lawofsynergy.stationeers.ic10e", "IC10 Extender", "0.2.1.0")]
     public class Plugin : BaseUnityPlugin
     {
         public static new ManualLogSource Logger;
-        //The particular check for this is arbitrary, as long as we are checking for *something* that exists in the beta branch but not release.
-        public static readonly bool IsBeta = typeof(ProgrammableChip).GetMethod("PackAscii6", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static) != null; 
 
         public static ManualLogSource GetLogger()
         {
@@ -38,7 +37,6 @@ namespace IC10_Extender
                 var harmony = new Harmony("com.lawofsynergy.stationeers.ic10e");
                 HarmonyFileLog.Enabled = true;
                 harmony.PatchAll(typeof(CommonPatches));
-                harmony.PatchAll(IsBeta ? typeof(BetaPatches) : typeof(ReleasePatches));
 
                 UnityEngine.Debug.Log("Patch succeeded");
                 Logger.LogInfo("Patch succeeded");

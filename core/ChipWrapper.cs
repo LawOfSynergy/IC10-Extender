@@ -59,7 +59,8 @@ namespace IC10_Extender
         private ChipWrapper(ProgrammableChip chip)
         {
             this.chip = chip;
-            chip.OnDestroyed += () => { Remove(chip); };
+            chipDestroyHandler = () => { Remove(chip); };
+            chip.OnDestroyed += chipDestroyHandler;
             OnReset += Reset;
         }
 

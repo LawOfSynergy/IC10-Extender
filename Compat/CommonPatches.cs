@@ -5,6 +5,7 @@ using Assets.Scripts.UI;
 using Assets.Scripts.Util;
 using HarmonyLib;
 using IC10_Extender.Operations;
+using IC10_Extender.Wrappers;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using System;
@@ -154,14 +155,13 @@ namespace IC10_Extender.Compat
             ChipWrapper chip = __instance.Wrap();
             if (chip.NextAddr < 0 || chip.NextAddr >= chip.LinesOfCode.Count || chip.LinesOfCode.Count == 0) return false;
 
-            int nextAddr1 = chip.NextAddr;
             int num = runCount;
 
             var ops = chip.Operations;
 
             while (num-- > 0 && chip.NextAddr >= 0 && chip.NextAddr < chip.LinesOfCode.Count)
             {
-                int nextAddr2 = chip.NextAddr;
+                int nextAddr = chip.NextAddr;
                 try
                 {
                     chip.NextAddr = ops[chip.NextAddr].Execute(chip.NextAddr);
@@ -173,7 +173,7 @@ namespace IC10_Extender.Compat
                 }
                 catch (Exception ex)
                 {
-                    chip.RuntimeException = ex.Wrap(nextAddr2);
+                    chip.RuntimeException = ex.Wrap(nextAddr);
                     break;
                 }
 
@@ -198,15 +198,14 @@ namespace IC10_Extender.Compat
         public static bool ExtendErrorReporting(ProgrammableChip __instance, DelayedActionInstance actionInstance)
         {
             ChipWrapper chip = __instance.Wrap();
-            ExtendedPCException ex;
-            if ((ex = chip.CompileException as ExtendedPCException) != null)
+            if (chip.CompileException is ExtendedPCException cex)
             {
-                actionInstance.AppendStateMessage(ex.ToString());
+                actionInstance.AppendStateMessage(cex.ToString());
                 return false; //skip original
             }
-            if ((ex = chip.RuntimeException as ExtendedPCException) != null)
+            if (chip.RuntimeException is ExtendedPCException rex)
             {
-                actionInstance.AppendStateMessage(ex.ToString());
+                actionInstance.AppendStateMessage(rex.ToString());
                 return false; //skip original
             }
             return true; //run original
@@ -223,18 +222,17 @@ namespace IC10_Extender.Compat
         [HarmonyDebug]
         [HarmonyPrefix]
         [HarmonyPatch(typeof(ProgrammableChip), "GetErrorCode", new Type[] { })]
-        public static bool GetErrorCode(ProgrammableChip __instance, string __result)
+        public static bool GetErrorCode(ProgrammableChip __instance, ref string __result)
         {
             ChipWrapper chip = __instance.Wrap();
-            ExtendedPCException ex;
-            if ((ex = chip.CompileException as ExtendedPCException) != null)
+            if (chip.CompileException is ExtendedPCException cex)
             {
-                __result = ex.ToString() + "\n";
+                __result = cex.ToString() + "\n";
                 return false; //skip original
             }
-            if ((ex = chip.RuntimeException as ExtendedPCException) != null)
+            if (chip.RuntimeException is ExtendedPCException rex)
             {
-                __result = ex.ToString() + "\n";
+                __result = rex.ToString() + "\n";
                 return false; //skip original
             }
             return true; //run original
@@ -243,7 +241,7 @@ namespace IC10_Extender.Compat
         [HarmonyDebug]
         [HarmonyILManipulator]
         [HarmonyPatch(typeof(Localization), nameof(Localization.ReplaceNumbers))]
-        public static void SkipNativeNumberPreprocessorHighlighting(ILContext il, ILLabel returnLabel)
+        public static void SkipNativeNumberPreprocessorHighlighting(ILContext il)
         {
             ILCursor c = new ILCursor(il);
 
@@ -258,7 +256,7 @@ namespace IC10_Extender.Compat
         [HarmonyDebug]
         [HarmonyILManipulator]
         [HarmonyPatch(typeof(Localization), nameof(Localization.ParseScriptLine))]
-        public static void HighlightSyntax(ILContext il, ILLabel returnLabel)
+        public static void HighlightSyntax(ILContext il)
         {
             ILCursor c = new ILCursor(il);
 

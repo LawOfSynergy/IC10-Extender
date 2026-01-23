@@ -102,4 +102,5 @@ namespace IC10_Extender
         public static void NoOpOnDelete(ChipWrapper chip) { }
 
         public static void NoOpOnReset(ChipWrapper chip) { }
+    }
 }

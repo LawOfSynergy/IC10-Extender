@@ -17,6 +17,7 @@ namespace IC10_Extender
         public static readonly HelpString NAME_HASH = new HelpString("NameHash", "#20B2AA");
         public static readonly HelpString SLOT_INDEX = new HelpString("slotIndex", "#20B2AA");
         public static readonly HelpString REAGENT_MODE = new HelpString("reagentMode", "orange");
+        public static readonly HelpString JUMP_LABEL = new HelpString("jump", "purple");
 
         private readonly string _string;
         private readonly string color;

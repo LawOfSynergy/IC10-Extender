@@ -1,27 +1,18 @@
 ﻿using Assets.Scripts.Objects.Electrical;
 using Assets.Scripts.Objects.Motherboards;
 using Assets.Scripts.Objects.Pipes;
-using BepInEx.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using IC10_Extender.Exceptions;
+using IC10_Extender.Variables;
+using static IC10_Extender.Variables.Variables;
 using static Assets.Scripts.Objects.Electrical.ProgrammableChipException;
-using static IC10_Extender.HelpString;
 
-namespace IC10_Extender
+namespace IC10_Extender.Operations
 {
     public class ThrowOperation : ExtendedOpCode
     {
-        protected ManualLogSource Logger;
+        private static readonly Variable<int> ErrorCode = Int.Named("errCode").Optional();
 
-        private static readonly HelpString[] Args = {(REGISTER+INTEGER).Var("errCode").Optional() };
-
-        public ThrowOperation() : base("error")
-        {
-            Logger = Plugin.GetLogger();
-        }
+        public ThrowOperation() : base("error") {}
 
         public override void Accept(int lineNumber, string[] source)
         {
@@ -35,41 +26,42 @@ namespace IC10_Extender
 
         public override HelpString[] Params()
         {
-            return Args;
+            return new HelpString[]{ ErrorCode };
         }
 
         public override string Description()
         {
-            return "Forces the chip to stop with an error. May optionally receive a value to set the containing device's <color=orange>Setting</color> to.";
+            return "Forces the chip to stop with an error. May optionally receive an error code to set the containing device's <color=orange>Setting</color> to.";
         }
 
         public class Instance : Operation
         {
-            protected readonly DoubleValueVariable ErrorCode;
+            protected readonly Getter<int> ErrorCodeGetter;
 
             public Instance(ChipWrapper chip, int lineNumber, string[] source) : base(chip, lineNumber)
             {
                 if (source.Length == 2)
                 {
-                    ErrorCode = new DoubleValueVariable(chip.chip, lineNumber, source[1], InstructionInclude.MaskDoubleValue, false);
+                    ErrorCodeGetter = ErrorCode.Build(new Binding(chip, lineNumber, source[1]));
                 }
             }
 
             public override int Execute(int index)
             {
-                if (ErrorCode != null)
+                var drCode = new DRCode("db");
+                ILogicable self = Chip.CircuitHousing.GetLogicableFromIndex(drCode.index, drCode.network);
+                if(ErrorCodeGetter(out var errorCode, false))
                 {
-                    DeviceIndexVariable deviceIndex = new DeviceIndexVariable(Chip.chip, LineNumber, "db", InstructionInclude.MaskDeviceIndex, false);
-                    int selfIndex = deviceIndex.GetVariableIndex(AliasTarget.Device, true);
-                    ILogicable self = Chip.CircuitHousing.GetLogicableFromIndex(selfIndex, deviceIndex.GetNetworkIndex());
-                    double errorCode = ErrorCode.GetVariableValue(AliasTarget.Register);
                     if (!self.CanLogicWrite(LogicType.Setting))
                     {
                         throw new ProgrammableChipException(ICExceptionType.IncorrectLogicType, LineNumber);
                     }
                     self.SetLogicValue(LogicType.Setting, errorCode);
+                } else
+                {
+                    errorCode = 0;
                 }
-                throw new ProgrammableChipException(ICExceptionType.Unknown, LineNumber);
+                throw new UserDefinedException(LineNumber, errorCode);
             }
         }
     }

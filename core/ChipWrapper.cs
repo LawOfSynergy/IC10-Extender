@@ -1,8 +1,8 @@
 ﻿using Assets.Scripts.Objects.Electrical;
+using IC10_Extender.Operations;
+using IC10_Extender.Wrappers;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using static Assets.Scripts.Objects.Thing;
 
@@ -46,7 +46,7 @@ namespace IC10_Extender
             return For(chip, false);
         }
 
-        static void Remove(ProgrammableChip chip)
+        internal static void Remove(ProgrammableChip chip)
         {
             if (wrappers.ContainsKey(chip))
             {
@@ -75,10 +75,12 @@ namespace IC10_Extender
             set => ProgrammableChip.InternalEnums = value;
         }
 
+        public ICircuitHolder CircuitHousing => chip.CircuitHousing;
+
+        public double[] Stack => chip._Stack;
         public double[] Registers => chip._Registers;
         public int StackPointerIndex => chip._StackPointerIndex;
         public int ReturnAddressIndex => chip._ReturnAddressIndex;
-        public double[] Stack => chip._Stack;
 
         /// <summary>
         /// this one returns a copy of the backing dictionary since some translation needs to occur between ProgrammableChip._AliasValue and AliasValue.
@@ -116,41 +118,55 @@ namespace IC10_Extender
         }
 
         public List<string> LinesOfCode => chip._LinesOfCode.Select(loc => loc.ToString()).ToList();
+        public List<ProgrammableChip._Operation> Operations => chip._LinesOfCode.Select(loc => loc.Operation).ToList();
+        public List<OpContext> OperationContexts => chip._LinesOfCode.Select(loc => (loc.Operation as OperationWrapper).op as OpContext).ToList();
+        public List<Operation> UnwrappedOperations => chip._LinesOfCode.Select(loc => ((loc.Operation as OperationWrapper).op as OpContext).op).ToList();
 
-        public int ExecuteIndex
+        private ProgrammableChipException _compileException;
+        public ProgrammableChipException CompileException
         {
-            get => chip._executeIndex;
-            set => chip._executeIndex = value;
+            get => _compileException;
+            set
+            {
+                _compileException = value;
+                if (value != null)
+                {
+                    chip.CircuitHousing?.RaiseError(1);
+                    chip.CompileErrorType = value.ExceptionType;
+                    chip.CompileErrorLineNumber = value.LineNumber;
+                } else
+                {
+                    chip.CompileErrorType = ProgrammableChipException.ICExceptionType.None;
+                    chip.CompileErrorLineNumber = 0;
+                }
+            }
         }
 
-        public ushort ErrorLineNumber
+        private ProgrammableChipException _runtimeException;
+        public ProgrammableChipException RuntimeException
         {
-            get => chip._ErrorLineNumber;
-            set => chip._ErrorLineNumber = value;
+            get => _runtimeException;
+            set
+            {
+                _runtimeException = value;
+                if (value != null)
+                {
+                    chip.CircuitHousing?.RaiseError(1);
+                    chip._ErrorType = value.ExceptionType;
+                    chip._ErrorLineNumber = value.LineNumber;
+                } else
+                {
+                    chip._ErrorType = ProgrammableChipException.ICExceptionType.None;
+                    chip._ErrorLineNumber = 0;
+                }
+            }
         }
 
-        public string ErrorTypeString => chip.ErrorTypeString;
-
-        public ProgrammableChipException.ICExceptionType ErrorType
+        public void ClearException()
         {
-            get => chip._ErrorType;
-            set => chip._ErrorType = value;
+            CircuitHousing?.ClearError();
+            CompileException = null;
+            RuntimeException = null;
         }
-
-        public bool CompilationError => chip.CompilationError;
-
-        public ushort CompileErrorLineNumber
-        {
-            get => chip.CompileErrorLineNumber;
-            set => chip.CompileErrorLineNumber = value;
-        }
-
-        public ProgrammableChipException.ICExceptionType CompileErrorType
-        {
-            get => chip.CompileErrorType;
-            set => chip.CompileErrorType = value;
-        }
-
-        public ICircuitHolder CircuitHousing => chip.CircuitHousing;
     }
 }

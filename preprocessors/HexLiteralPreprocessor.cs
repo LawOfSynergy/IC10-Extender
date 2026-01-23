@@ -1,10 +1,11 @@
 ﻿using Assets.Scripts.Objects.Electrical;
+using IC10_Extender.Highlighters;
 using System;
 using System.Text.RegularExpressions;
 using static Assets.Scripts.Localization;
 using static Assets.Scripts.Objects.Electrical.ProgrammableChipException;
 
-namespace IC10_Extender
+namespace IC10_Extender.Preprocessors
 {
     public class HexLiteralPreprocessor : Preprocessor
     {
@@ -43,7 +44,7 @@ namespace IC10_Extender
                         line.Raw = line.Raw.Replace(hexPreprocessing.GetFull(index), Convert.ToInt64(str, 16 /*0x10*/).ToString());
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     throw new ProgrammableChipException(ICExceptionType.InvalidPreprocessHex, line.OriginatingLineNumber);
                 }

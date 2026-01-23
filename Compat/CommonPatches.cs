@@ -4,6 +4,7 @@ using Assets.Scripts.Objects.Motherboards;
 using Assets.Scripts.UI;
 using Assets.Scripts.Util;
 using HarmonyLib;
+using IC10_Extender.Operations;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using System;
@@ -12,8 +13,9 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using UI.Tooltips;
+using static Assets.Scripts.Objects.Thing;
 
-namespace IC10_Extender
+namespace IC10_Extender.Compat
 {
     //patches that work in BOTH branches
     public static class CommonPatches
@@ -135,15 +137,108 @@ namespace IC10_Extender
                 }
                 catch (ProgrammableChipException ex)
                 {
-                    chip.CircuitHousing?.RaiseError(1);
-                    chip.CompileErrorLineNumber = ex.LineNumber;
-                    chip.CompileErrorType = ex.ExceptionType;
+                    wrapper.CompileException = ex;
                 }
                 ConstructionContext.Clear(chip);
                 
                 chip._NextAddr = 0;
             });
             c.Emit(OpCodes.Br, returnLabel);
+        }
+
+        [HarmonyDebug]
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(ProgrammableChip), "Execute", new Type[] { typeof(int) })]
+        public static bool OverridePCExecute(ProgrammableChip __instance, int runCount)
+        {
+            ChipWrapper chip = __instance.Wrap();
+            if (chip.NextAddr < 0 || chip.NextAddr >= chip.LinesOfCode.Count || chip.LinesOfCode.Count == 0) return false;
+
+            int nextAddr1 = chip.NextAddr;
+            int num = runCount;
+
+            var ops = chip.Operations;
+
+            while (num-- > 0 && chip.NextAddr >= 0 && chip.NextAddr < chip.LinesOfCode.Count)
+            {
+                int nextAddr2 = chip.NextAddr;
+                try
+                {
+                    chip.NextAddr = ops[chip.NextAddr].Execute(chip.NextAddr);
+                }
+                catch (ProgrammableChipException ex)
+                {
+                    chip.RuntimeException = ex;
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    chip.RuntimeException = ex.Wrap(nextAddr2);
+                    break;
+                }
+
+                if (chip.CircuitHousing != null)
+                {
+                    chip.ClearException();
+                }
+
+                if (chip.NextAddr < 0)
+                {
+                    chip.NextAddr = -chip.NextAddr;
+                    break;
+                }
+            }
+
+            return false; //skip original
+        }
+
+        [HarmonyDebug]
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(ProgrammableChip), "AppendErrorsToActionInstance", new Type[] { typeof(DelayedActionInstance) })]
+        public static bool ExtendErrorReporting(ProgrammableChip __instance, DelayedActionInstance actionInstance)
+        {
+            ChipWrapper chip = __instance.Wrap();
+            ExtendedPCException ex;
+            if ((ex = chip.CompileException as ExtendedPCException) != null)
+            {
+                actionInstance.AppendStateMessage(ex.ToString());
+                return false; //skip original
+            }
+            if ((ex = chip.RuntimeException as ExtendedPCException) != null)
+            {
+                actionInstance.AppendStateMessage(ex.ToString());
+                return false; //skip original
+            }
+            return true; //run original
+        }
+
+        [HarmonyDebug]
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(ProgrammableChip), "Reset", new Type[] {})]
+        public static void ClearRuntimeExceptionOnReset(ProgrammableChip __instance)
+        {
+            ChipWrapper chip = __instance.Wrap();
+            chip.RuntimeException = null;
+        }
+
+        [HarmonyDebug]
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(ProgrammableChip), "GetErrorCode", new Type[] { })]
+        public static bool GetErrorCode(ProgrammableChip __instance, string __result)
+        {
+            ChipWrapper chip = __instance.Wrap();
+            ExtendedPCException ex;
+            if ((ex = chip.CompileException as ExtendedPCException) != null)
+            {
+                __result = ex.ToString() + "\n";
+                return false; //skip original
+            }
+            if ((ex = chip.RuntimeException as ExtendedPCException) != null)
+            {
+                __result = ex.ToString() + "\n";
+                return false; //skip original
+            }
+            return true; //run original
         }
 
         [HarmonyDebug]

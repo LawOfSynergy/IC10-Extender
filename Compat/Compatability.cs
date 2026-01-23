@@ -1,7 +1,7 @@
 ﻿using Assets.Scripts.Objects.Electrical;
 using System;
 
-namespace IC10_Extender
+namespace IC10_Extender.Compat
 {
     public class Compatability
     {

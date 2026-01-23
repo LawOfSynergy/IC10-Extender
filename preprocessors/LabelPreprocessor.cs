@@ -2,7 +2,7 @@
 using System;
 using static Assets.Scripts.Objects.Electrical.ProgrammableChipException;
 
-namespace IC10_Extender
+namespace IC10_Extender.Preprocessors
 {
     /// <summary>
     /// Since this preprocessor assigns jump labels, this MUST be run after all preprocessors that remove or add lines.

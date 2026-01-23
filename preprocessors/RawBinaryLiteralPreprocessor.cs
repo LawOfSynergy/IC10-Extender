@@ -1,10 +1,11 @@
 ﻿using Assets.Scripts.Objects.Electrical;
+using IC10_Extender.Highlighters;
 using System;
 using System.Text.RegularExpressions;
 using static Assets.Scripts.Localization;
 using static Assets.Scripts.Objects.Electrical.ProgrammableChipException;
 
-namespace IC10_Extender
+namespace IC10_Extender.Preprocessors
 {
     public class RawBinaryLiteralPreprocessor : Preprocessor
     {
@@ -44,7 +45,7 @@ namespace IC10_Extender
                         line.Display = line.Raw;
                     }
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     throw new ProgrammableChipException(ICExceptionType.InvalidProcessBinary, line.OriginatingLineNumber);
                 }

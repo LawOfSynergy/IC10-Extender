@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace IC10_Extender
+namespace IC10_Extender.Wrappers
 {
     [Flags]
     public enum AliasTarget

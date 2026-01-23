@@ -1,6 +1,6 @@
 ﻿using Assets.Scripts.Objects.Electrical;
 
-namespace IC10_Extender
+namespace IC10_Extender.Operations
 {
     public class OperationWrapper : ProgrammableChip._Operation
     {

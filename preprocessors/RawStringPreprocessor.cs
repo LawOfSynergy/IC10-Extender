@@ -1,10 +1,11 @@
 ﻿using Assets.Scripts.Objects.Electrical;
+using IC10_Extender.Highlighters;
 using System;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using static Assets.Scripts.Localization;
 
-namespace IC10_Extender
+namespace IC10_Extender.Preprocessors
 {
     public class RawStringPreprocessor : Preprocessor
     {

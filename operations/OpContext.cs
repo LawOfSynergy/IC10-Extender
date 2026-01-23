@@ -1,9 +1,8 @@
-﻿namespace IC10_Extender
+﻿namespace IC10_Extender.Operations
 {
     public class OpContext : Operation
     {
-        private Operation op;
-        private string raw;
+        public readonly Operation op;
         private PreExecute PreExecute;
         private PostExecute PostExecute;
 
@@ -11,7 +10,6 @@
         public OpContext(Operation op, Line line) : base(op.Chip, op.LineNumber)
         {
             this.op = op;
-            raw = line.Raw;
 
             PreExecute = line.PreExecute;
             PostExecute = line.PostExecute;

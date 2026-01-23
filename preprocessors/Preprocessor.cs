@@ -1,13 +1,9 @@
-﻿using Assets.Scripts.Objects.Electrical;
-using Assets.Scripts.UI;
+﻿using Assets.Scripts.UI;
+using IC10_Extender.Highlighters;
 using System;
-using System.Collections.Generic;
-using System.Reflection.Emit;
-using System.Text;
-using System.Threading.Tasks;
 using UnityEngine;
 
-namespace IC10_Extender
+namespace IC10_Extender.Preprocessors
 {
     public abstract class Preprocessor
     {

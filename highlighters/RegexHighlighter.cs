@@ -1,7 +1,6 @@
-﻿using Assets.Scripts.Util;
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 
-namespace IC10_Extender
+namespace IC10_Extender.Highlighters
 {
     public class RegexHighlighter : SyntaxHighlighter
     {

@@ -1,4 +1,6 @@
-﻿namespace IC10_Extender
+﻿using IC10_Extender.Highlighters;
+
+namespace IC10_Extender.Preprocessors
 {
     public class CommentPreprocessor : Preprocessor
     {

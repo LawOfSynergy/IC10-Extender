@@ -1,14 +1,10 @@
 ﻿using Assets.Scripts.Objects.Electrical;
 using Assets.Scripts.Util;
+using IC10_Extender.Exceptions;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using static Assets.Scripts.Localization;
-using static Assets.Scripts.Objects.Electrical.ProgrammableChipException;
 
 namespace IC10_Extender
 {
@@ -99,7 +95,7 @@ namespace IC10_Extender
             switch(ex)
             {
                 case ProgrammableChipException pce: return pce;
-                default: return new ProgrammableChipException(ICExceptionType.Unknown, lineNumber);
+                default: return new WrappedException(lineNumber, ex);
             }
         }
 

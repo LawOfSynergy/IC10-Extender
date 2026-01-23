@@ -1,6 +1,6 @@
 ﻿using System.Linq;
 
-namespace IC10_Extender
+namespace IC10_Extender.Highlighters
 {
     public class SyntaxHighlighter
     {

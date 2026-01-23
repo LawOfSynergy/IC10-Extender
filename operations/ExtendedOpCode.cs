@@ -1,13 +1,9 @@
-﻿using Assets.Scripts;
-using Assets.Scripts.Objects.Electrical;
-using Assets.Scripts.UI;
+﻿using Assets.Scripts.UI;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Reflection.Emit;
 using UnityEngine;
 
-namespace IC10_Extender
+namespace IC10_Extender.Operations
 {
     public abstract class ExtendedOpCode
     {
@@ -23,7 +19,7 @@ namespace IC10_Extender
         }
 
         /**
-         * throw ProgrammableChipException if the input is not acceptable, e.g. if the number of args doesn't match
+         * throw ProgrammableChipException or ExtendedPCException if the input is not acceptable, e.g. if the number of args doesn't match
          */
         public abstract void Accept(int lineNumber, string[] source);
 

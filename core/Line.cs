@@ -1,4 +1,6 @@
-﻿namespace IC10_Extender
+﻿using IC10_Extender.Operations;
+
+namespace IC10_Extender
 {
     public struct Line
     {

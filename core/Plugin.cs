@@ -1,15 +1,10 @@
-﻿using Assets.Scripts.Objects.Electrical;
-using BepInEx;
-using BepInEx.Harmony;
+﻿using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
 using HarmonyLib.Tools;
+using IC10_Extender.Compat;
+using IC10_Extender.Operations;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace IC10_Extender
 {
@@ -26,7 +21,7 @@ namespace IC10_Extender
 
         void Awake()
         {
-            Plugin.Logger = base.Logger;
+            Logger = base.Logger;
 
             UnityEngine.Debug.Log("Loading Mod");
             Logger.LogInfo("Loading Mod");
@@ -51,6 +46,7 @@ namespace IC10_Extender
 
             DefaultPreprocessors.Register();
             IC10Extender.Register(new ThrowOperation());
+            DefaultConstants.RegisterAll();
         }
     }
 }

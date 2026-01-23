@@ -1,4 +1,4 @@
-﻿namespace IC10_Extender
+﻿namespace IC10_Extender.Preprocessors
 {
     public class NoOpProcessorOperation : PreprocessorOperation
     {

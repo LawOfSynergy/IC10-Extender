@@ -1,20 +1,10 @@
-﻿using Assets.Scripts;
-using Assets.Scripts.Objects.Electrical;
-using Assets.Scripts.Objects.Motherboards;
-using Assets.Scripts.Objects.Pipes;
-using Assets.Scripts.UI;
+﻿using Assets.Scripts.Objects.Electrical;
 using Assets.Scripts.Util;
-using BepInEx;
-using BepInEx.Logging;
-using HarmonyLib;
-using HarmonyLib.Tools;
-using Reagents;
+using IC10_Extender.Operations;
+using IC10_Extender.Preprocessors;
 using System;
 using System.Collections.Generic;
-using System.Reflection;
-using System.Text.RegularExpressions;
-using Util.Commands;
-using static Assets.Scripts.Objects.Electrical.ProgrammableChipException;
+using System.Linq;
 
 namespace IC10_Extender
 {
@@ -35,6 +25,7 @@ namespace IC10_Extender
         public static Dictionary<string, ExtendedOpCode> OpCodes => new Dictionary<string, ExtendedOpCode>(opcodes);
         public static List<Preprocessor> Preprocessors => new List<Preprocessor>(preprocessors);
         public static Dictionary<string, ProgrammableChip.Constant> Constants => new Dictionary<string, ProgrammableChip.Constant>(constants);
+        public static Dictionary<string, double> ConstantValues => constants.Values.ToDictionary(c => c.Literal, c => c.Value);
         public static Dictionary<string, string> Colors => new Dictionary<string, string>(colors);
 
         public static void Register(ExtendedOpCode op, Func<bool> accept = null)

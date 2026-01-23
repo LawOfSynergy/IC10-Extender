@@ -131,7 +131,7 @@ the `ProgrammableChip._Operation` class. So in general the object wrapping chain
 ProgrammableChip.LineOfCode -> OperationWrapper -> OpContext -> <author defined Operation subclass>
 
 # otherwise (vanilla, or modded and directly subclassing ProgrammableChip._Operation)
-ProgrammableChip.LineOfCode ->  OperationWrapper -> OpContext -> ReverseWrapper -> <vanilla or externally modded _Operation subclass>
+ProgrammableChip.LineOfCode -> OperationWrapper -> OpContext -> ReverseWrapper -> <vanilla or externally modded _Operation subclass>
 ```
 
 ## Creating a Preprocessor

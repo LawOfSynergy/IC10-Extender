@@ -1,10 +1,6 @@
 ﻿using Assets.Scripts.Objects.Electrical;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static IC10_Extender.PreprocessorOperation;
 
 namespace IC10_Extender
 {

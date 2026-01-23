@@ -1,11 +1,12 @@
 ﻿using Assets.Scripts.Objects.Electrical;
+using IC10_Extender.Highlighters;
 using System;
 using System.Text.RegularExpressions;
 using UnityEngine;
 using static Assets.Scripts.Localization;
 using static Assets.Scripts.Objects.Electrical.ProgrammableChipException;
 
-namespace IC10_Extender
+namespace IC10_Extender.Preprocessors
 {
     public class HashPreprocessor : Preprocessor
     {
@@ -42,7 +43,7 @@ namespace IC10_Extender
                     {
                         line.Raw = line.Raw.Replace(hashPreprocessing.GetFull(index), Animator.StringToHash(hashPreprocessing.GetName(index)).ToString());
                     }
-                } catch (Exception ex) {
+                } catch (Exception) {
                     throw new ProgrammableChipException(ICExceptionType.InvalidPreprocessHash, line.OriginatingLineNumber);
                 }
 

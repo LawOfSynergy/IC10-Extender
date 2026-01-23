@@ -1,14 +1,9 @@
 ﻿using Assets.Scripts.Objects.Electrical;
-using Assets.Scripts.OpenNat;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using UI.ImGuiUi.Debug;
-using static IC10_Extender.PreprocessorOperation;
 
-namespace IC10_Extender
+namespace IC10_Extender.Preprocessors
 {
     public abstract class PreprocessorOperation
     {
@@ -47,7 +42,7 @@ namespace IC10_Extender
 
         public virtual IEnumerable<Line> ReNumber(IEnumerable<Line> fullScript)
         {
-            return fullScript.Select((Line line, int index) => { line.LineNumber = (ushort)index; return line; });
+            return fullScript.Select((line, index) => { line.LineNumber = (ushort)index; return line; });
         }
 
         public static PreprocessorOperation NoOp(ChipWrapper chip)

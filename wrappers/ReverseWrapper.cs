@@ -1,6 +1,7 @@
 ﻿using Assets.Scripts.Objects.Electrical;
+using IC10_Extender.Operations;
 
-namespace IC10_Extender
+namespace IC10_Extender.Wrappers
 {
     public class ReverseWrapper : Operation
     {

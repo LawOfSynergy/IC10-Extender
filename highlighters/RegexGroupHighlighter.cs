@@ -1,6 +1,6 @@
 ﻿using System.Text.RegularExpressions;
 
-namespace IC10_Extender
+namespace IC10_Extender.Highlighters
 {
     public class RegexGroupHighlighter : RegexHighlighter
     {
@@ -8,7 +8,7 @@ namespace IC10_Extender
 
         public RegexGroupHighlighter(Regex regex, string color, params string[] innerColors) : base(regex, color)
         {
-            this.colors = innerColors;
+            colors = innerColors;
         }
 
         public override string HighlightLine(string line)
@@ -24,7 +24,7 @@ namespace IC10_Extender
                     foreach (Capture capture in groups[i].Captures)
                     {
                         nonGrouped = nonGrouped.Replace(capture.Value, "|");
-                        matchResult = matchResult.Replace(capture.Value, $"<color={colors[(i - 1)]}>{capture.Value}</color>");
+                        matchResult = matchResult.Replace(capture.Value, $"<color={colors[i - 1]}>{capture.Value}</color>");
                     }
                 }
                 foreach (string token in nonGrouped.Split('|', System.StringSplitOptions.RemoveEmptyEntries))

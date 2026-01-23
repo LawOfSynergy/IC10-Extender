@@ -14,6 +14,7 @@ namespace IC10_Extender
         public PreExecute PreExecute = IC10Extender.NoOpPreExecute;
         public PostExecute PostExecute = IC10Extender.NoOpPostExecute;
         public OnDelete OnDelete = IC10Extender.NoOpOnDelete;
+        public OnReset OnReset = IC10Extender.NoOpOnReset;
 
         private readonly Event chipDestroyHandler;
 
@@ -58,8 +59,8 @@ namespace IC10_Extender
         private ChipWrapper(ProgrammableChip chip)
         {
             this.chip = chip;
-            chipDestroyHandler = () => { Remove(chip); };
-            chip.OnDestroyed += chipDestroyHandler;
+            chip.OnDestroyed += () => { Remove(chip); };
+            OnReset += Reset;
         }
 
         private void Delete()
@@ -67,6 +68,18 @@ namespace IC10_Extender
             var onDelete = IC10Extender.OnDelete + OnDelete;
             onDelete(this);
             chip.OnDestroyed -= chipDestroyHandler;
+            OnReset -= Reset;
+        }
+
+        internal void Reset()
+        {
+            var onReset = IC10Extender.OnReset + OnReset;
+            onReset(this);
+        }
+
+        private static void Reset(ChipWrapper chip)
+        {
+            chip.RuntimeException = null;
         }
 
         public static List<IScriptEnum> InternalEnums

@@ -215,10 +215,9 @@ namespace IC10_Extender.Compat
         [HarmonyDebug]
         [HarmonyPostfix]
         [HarmonyPatch(typeof(ProgrammableChip), "Reset", new Type[] {})]
-        public static void ClearRuntimeExceptionOnReset(ProgrammableChip __instance)
+        public static void OnResetHook(ProgrammableChip __instance)
         {
-            ChipWrapper chip = __instance.Wrap();
-            chip.RuntimeException = null;
+            __instance.Wrap().Reset();
         }
 
         [HarmonyDebug]

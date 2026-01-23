@@ -12,6 +12,8 @@ namespace IC10_Extender
     public delegate void PostExecute(OpContext op, ref int index);
     /** Called when a chip wrapper is deleted, whether due to destruction or recompilation. The ChipWrapper passed in is no longer valid after this call.*/
     public delegate void OnDelete(ChipWrapper chip);
+    /** Called when a chip's runtime state is reset, e.g. on putting into or taking out of a circuit housing*/
+    public delegate void OnReset(ChipWrapper chip);
     public static class IC10Extender
     {
         private static readonly Dictionary<string, ExtendedOpCode> opcodes = new Dictionary<string, ExtendedOpCode>();
@@ -21,6 +23,7 @@ namespace IC10_Extender
         public static PreExecute PreExecute = NoOpPreExecute;
         public static PostExecute PostExecute = NoOpPostExecute;
         public static OnDelete OnDelete = NoOpOnDelete;
+        public static OnReset OnReset = NoOpOnReset;
 
         public static Dictionary<string, ExtendedOpCode> OpCodes => new Dictionary<string, ExtendedOpCode>(opcodes);
         public static List<Preprocessor> Preprocessors => new List<Preprocessor>(preprocessors);
@@ -97,5 +100,6 @@ namespace IC10_Extender
         public static void NoOpPreExecute(OpContext op) { }
         public static void NoOpPostExecute(OpContext op, ref int index) { }
         public static void NoOpOnDelete(ChipWrapper chip) { }
-    }
+
+        public static void NoOpOnReset(ChipWrapper chip) { }
 }

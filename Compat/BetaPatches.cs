@@ -2,7 +2,7 @@
 {
 
     //patches that ONLY work in the beta branch
-    public static class BetaPatches
+    internal static class BetaPatches
     {
 
     }

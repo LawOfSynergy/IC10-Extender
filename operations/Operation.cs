@@ -8,11 +8,10 @@ namespace IC10_Extender.Operations
     //that the Execute method was already overridden.
 
     //create a publicly accessable class for this, so that add-ons don't have to publicize the core dll
-    public abstract partial class Operation
+    public abstract class Operation
     {
         public readonly ChipWrapper Chip;
         public readonly int LineNumber;
-        protected const string ZeroString = "0";
 
         protected Operation(ChipWrapper chip, int lineNumber)
         {

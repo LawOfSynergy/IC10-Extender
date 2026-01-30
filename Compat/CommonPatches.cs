@@ -19,7 +19,7 @@ using static Assets.Scripts.Objects.Thing;
 namespace IC10_Extender.Compat
 {
     //patches that work in BOTH branches
-    public static class CommonPatches
+    internal static class CommonPatches
     {
         [HarmonyDebug]
         [HarmonyPrefix]
@@ -82,11 +82,9 @@ namespace IC10_Extender.Compat
                 opRef.SetValue(__instance, new OperationWrapper(new OpContext(new ReverseWrapper((ProgrammableChip._Operation)opRef.GetValue(__instance)), line)));
             }
 
-            Plugin.Logger.LogInfo($"Line.Raw: {line.Raw}, Line.Display:{line.Display}, Before set: {__instance.LineOfCode}");
             // set LineOfCode to display value now that operation has finished constructing, regardless of modded or vanilla
             lineRef.SetValue(__instance, line.Display);
-            Plugin.Logger.LogInfo($"After set: {__instance.LineOfCode}");
-
+            
             // clean up construction state regardless of modded or vanilla
             ConstructionContext.Remove(chip, lineNumber);
         }
@@ -298,7 +296,7 @@ namespace IC10_Extender.Compat
 
                         int spaceCount = copy.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length - 1;
                         string fragment = masterString.Substring(len, masterString.Length - len);
-                        masterString = $"{prefix}{string.Format(format, name, opcode.Color())}{fragment.TrimEnd()} {opcode.CommandExample(spaceCount, "darkgrey")}";
+                        masterString = $"{prefix}{string.Format(format, name, opcode.Color())}{fragment.TrimEnd()} {opcode.CommandExample(spaceCount, Colors.EXAMPLE)}";
                         return;
                     }
                 }
@@ -424,8 +422,8 @@ namespace IC10_Extender.Compat
                 if (opcode != null && !opcode.Deprecated)
                 {
 
-                    var str = new StringBuilder($"<color=white><b>Instruction</b></color>\n<i>{opcode.CommandExample()}</i>\n");
-                    StringManager.WrapLineLength(str, opcode.Description(), 70, "grey");
+                    var str = new StringBuilder($"<color={Colors.STRING}><b>Instruction</b></color>\n<i>{opcode.CommandExample()}</i>\n");
+                    StringManager.WrapLineLength(str, opcode.Description(), 70, Colors.DESCRIPTION);
                     UITooltipManager.SetTooltip(str);
                     return false;
                 }

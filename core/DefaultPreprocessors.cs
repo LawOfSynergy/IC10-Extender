@@ -3,13 +3,13 @@ using IC10_Extender.Preprocessors;
 
 namespace IC10_Extender
 {
-    public static class DefaultPreprocessors
+    internal static class DefaultPreprocessors
     {
-        public static void Register()
+        internal static void Register()
         {
             IC10Extender.Register(new CommentPreprocessor());
-            IC10Extender.Register(new RawStringPreprocessor(), accept: Compatability.AfterStrings);
-            IC10Extender.Register(new StringPreprocessor(), accept: Compatability.AfterStrings);
+            IC10Extender.Register(new RawStringPreprocessor(), accept: CompatabilityCheck.AfterStrings);
+            IC10Extender.Register(new StringPreprocessor(), accept: CompatabilityCheck.AfterStrings);
             IC10Extender.Register(new RawHashPreprocessor());
             IC10Extender.Register(new HashPreprocessor());
             IC10Extender.Register(new RawBinaryLiteralPreprocessor());

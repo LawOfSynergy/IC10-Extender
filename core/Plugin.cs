@@ -1,4 +1,5 @@
-﻿using BepInEx;
+﻿using Assets.Scripts;
+using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
 using HarmonyLib.Tools;
@@ -47,6 +48,7 @@ namespace IC10_Extender
             DefaultPreprocessors.Register();
             IC10Extender.Register(new ThrowOperation());
             DefaultConstants.RegisterAll();
+            Colors.Register();
         }
     }
 }

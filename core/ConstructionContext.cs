@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace IC10_Extender
 {
-    public static class ConstructionContext
+    internal static class ConstructionContext
     {
         private static readonly Dictionary<ProgrammableChip, Dictionary<int, Line>> context = new Dictionary<ProgrammableChip, Dictionary<int, Line>>();
 

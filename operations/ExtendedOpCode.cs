@@ -54,7 +54,7 @@ namespace IC10_Extender.Operations
         /// <returns>A keyword (default "yellow") or a hex code of the format #RRGGBBAA (TODO fact-check?)</returns>
         public virtual string Color()
         {
-            return "yellow";
+            return Colors.COMMAND;
         }
 
         /// <summary>

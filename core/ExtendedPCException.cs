@@ -22,7 +22,7 @@ namespace IC10_Extender
 
         public override string ToString()
         {
-            return $"Error <color=red>{GetType().Name} at line {LineNumber}: {Message}</color>";
+            return $"Error <color={Colors.ERROR}>{GetType().Name} at line {LineNumber}: {Message}</color>";
         }
     }
 }

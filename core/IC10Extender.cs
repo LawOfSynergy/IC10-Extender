@@ -1,5 +1,6 @@
 ﻿using Assets.Scripts.Objects.Electrical;
 using Assets.Scripts.Util;
+using IC10_Extender.Compat;
 using IC10_Extender.Operations;
 using IC10_Extender.Preprocessors;
 using System;
@@ -31,9 +32,13 @@ namespace IC10_Extender
         public static Dictionary<string, double> ConstantValues => constants.Values.ToDictionary(c => c.Literal, c => c.Value);
         public static Dictionary<string, string> Colors => new Dictionary<string, string>(colors);
 
-        public static void Register(ExtendedOpCode op, Func<bool> accept = null)
+        public static void Register(ExtendedOpCode op, CompatabilityCheck accept = null)
         {
-            if (accept != null && !accept()) { return; }
+            if (accept != null && !accept.Accept())
+            {
+                accept.OnFail();
+                return;
+            }
 
             UnityEngine.Debug.Log($"Registering opcode \"{op.OpCode}\"");
             Plugin.Logger?.LogInfo($"Registering opcode \"{op.OpCode}\"");
@@ -41,9 +46,13 @@ namespace IC10_Extender
         }
 
         //an index can be provided in case execution order needs to be modified. Defaults to adding to the end of the list (executes last)
-        public static void Register(Preprocessor preprocessor, int index = -1, Func<bool> accept = null)
+        public static void Register(Preprocessor preprocessor, int index = -1, CompatabilityCheck accept = null)
         {
-            if (accept != null && !accept()) { return; }
+            if (accept != null && !accept.Accept())
+            {
+                accept.OnFail();
+                return;
+            }
 
             UnityEngine.Debug.Log($"Registering preprocessor \"{preprocessor.SimpleName}\"");
             Plugin.Logger?.LogInfo($"Registering preprocessor \"{preprocessor.SimpleName}\"");
@@ -57,17 +66,26 @@ namespace IC10_Extender
             }
         }
 
-        public static void Register(ProgrammableChip.Constant constant, Func<bool> accept = null)
+        public static void Register(ProgrammableChip.Constant constant, CompatabilityCheck accept = null)
         {
-            if (accept != null && !accept()) { return; }
+            if (accept != null && !accept.Accept())
+            {
+                accept.OnFail();
+                return;
+            }
 
             UnityEngine.Debug.Log($"Registering constant \"{constant.Literal}\"");
             Plugin.Logger?.LogInfo($"Registering constant \"{constant.Literal}\"");
             constants.Add(constant.Literal, constant);
         }
 
-        public static void RegisterColor(string name, string value)
+        public static void RegisterColor(string name, string value, CompatabilityCheck accept = null)
         {
+            if (accept != null && !accept.Accept()) {
+                accept.OnFail();
+                return; 
+            }
+
             colors.Add(name, value);
         }
 

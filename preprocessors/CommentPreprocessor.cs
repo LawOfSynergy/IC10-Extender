@@ -6,10 +6,9 @@ namespace IC10_Extender.Preprocessors
     {
         public override string SimpleName => "comment_preprocessor";
 
-        public override string HelpEntryName => $"<color={Color}>#</color>";
+        public override string HelpEntryName => $"<color={Colors.COMMENT}>#</color>";
 
         public override string HelpEntryDescription => "any following characters on this line are ignored";
-        public const string Color = "#808080";
 
         public override PreprocessorOperation Create(ChipWrapper chip)
         {
@@ -38,7 +37,7 @@ namespace IC10_Extender.Preprocessors
             public override string HighlightLine(string line)
             {
                 if (string.IsNullOrEmpty(line)) return line;
-                return line.Contains("#") ? $"{line.Substring(0, line.IndexOf("#"))}<color={Color}>{line.Substring(line.IndexOf("#"))}</color>" : line;
+                return line.Contains("#") ? $"{line.Substring(0, line.IndexOf("#"))}<color={Colors.COMMENT}>{line.Substring(line.IndexOf("#"))}</color>" : line;
             }
         }
     }

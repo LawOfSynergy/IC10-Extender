@@ -3,9 +3,9 @@ using System.Linq;
 
 namespace IC10_Extender
 {
-    public static class DefaultConstants
+    internal static class DefaultConstants
     {
-        public static void RegisterAll()
+        internal static void RegisterAll()
         {
             ProgrammableChip.AllConstants.ToList().ForEach(c =>
             {

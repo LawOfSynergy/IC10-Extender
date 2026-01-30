@@ -12,7 +12,9 @@ namespace IC10_Extender.Variables
                 Lookup(
                     WithDefinesAndConstants()
                 ),
-                Register(),
+                Register(
+                    WithAliases(AliasTarget.Register)
+                ).Lookup(),
                 ParseDouble()
             ),
             HelpString.NUMBER + HelpString.REGISTER
@@ -23,7 +25,9 @@ namespace IC10_Extender.Variables
                 Lookup(
                     WithDefinesAndConstants()
                 ).AsLong(),
-                Register().AsLong(),
+                Register(
+                    WithAliases(AliasTarget.Register)
+                ).Lookup().AsLong(),
                 ParseLong()
             ),
             HelpString.INTEGER + HelpString.REGISTER
@@ -34,7 +38,9 @@ namespace IC10_Extender.Variables
                 Lookup(
                     WithDefinesAndConstants()
                 ).AsInt(),
-                Register().AsInt(),
+                Register(
+                    WithAliases(AliasTarget.Register)
+                ).Lookup().AsInt(),
                 ParseInt()
             ),
             HelpString.INTEGER + HelpString.REGISTER
@@ -45,7 +51,9 @@ namespace IC10_Extender.Variables
                 Lookup(
                     WithDefinesAndConstants()
                 ).AsShort(),
-                Register().AsShort(),
+                Register(
+                    WithAliases(AliasTarget.Register)
+                ).Lookup().AsShort(),
                 ParseShort()
             ),
             HelpString.INTEGER + HelpString.REGISTER
@@ -56,7 +64,9 @@ namespace IC10_Extender.Variables
                 Lookup(
                     WithDefinesAndConstants()
                 ).AsByte(),
-                Register().AsByte(),
+                Register(
+                    WithAliases(AliasTarget.Register)
+                ).Lookup().AsByte(),
                 ParseByte()
             ),
             HelpString.INTEGER + HelpString.REGISTER
@@ -67,10 +77,20 @@ namespace IC10_Extender.Variables
                 Lookup(
                     WithDefinesAndConstants().AsInt().Concat(WithJumpLabels())
                 ),
-                Register().AsInt(),
+                Register(
+                    WithAliases(AliasTarget.Register)
+                ).Lookup().AsInt(),
                 ParseInt()
             ),
             HelpString.JUMP_LABEL + HelpString.INTEGER + HelpString.REGISTER
+        );
+
+        public static readonly Variable<AliasValue?> Register = new Variable<AliasValue?>(
+            Register(
+                WithAliases(AliasTarget.Register),
+                impliedR: true
+            ),
+            HelpString.INTEGER + HelpString.REGISTER
         );
 
         public static readonly Variable<ILogicable> Device = new Variable<ILogicable>(

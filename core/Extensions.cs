@@ -1,6 +1,8 @@
 ﻿using Assets.Scripts.Objects.Electrical;
 using Assets.Scripts.Util;
 using IC10_Extender.Exceptions;
+using IC10_Extender.Variables;
+using IC10_Extender.Wrappers;
 using System;
 using System.Reflection;
 using System.Text.RegularExpressions;
@@ -50,6 +52,22 @@ namespace IC10_Extender
         public static ChipWrapper Wrap(this ProgrammableChip chip)
         {
             return ChipWrapper.For(chip);
+        }
+
+        public static void Print(this Exception ex)
+        {
+            switch(ex)
+            {
+                case ExtendedPCException epce:
+                    Plugin.Logger.LogWarning($"Error {epce.GetType().Name} at line {epce.LineNumber}: {epce.Message}\n{epce.StackTrace}");
+                    break;
+                case ProgrammableChipException pce:
+                    Plugin.Logger.LogWarning($"Error {pce.GetType().Name} at line {pce.LineNumber}: {pce.ExceptionType}\n{pce.StackTrace}");
+                    break;
+                default:
+                    Plugin.Logger.LogWarning(ex.ToString());
+                    break;
+            }
         }
 
         public static MethodInfo GetMethod(this Type type, string name, params Type[] argTypes)

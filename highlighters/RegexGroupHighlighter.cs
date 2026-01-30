@@ -23,11 +23,11 @@ namespace IC10_Extender.Highlighters
                 {
                     foreach (Capture capture in groups[i].Captures)
                     {
-                        nonGrouped = nonGrouped.Replace(capture.Value, "|");
+                        nonGrouped = nonGrouped.Replace(capture.Value, "\0");
                         matchResult = matchResult.Replace(capture.Value, $"<color={colors[i - 1]}>{capture.Value}</color>");
                     }
                 }
-                foreach (string token in nonGrouped.Split('|', System.StringSplitOptions.RemoveEmptyEntries))
+                foreach (string token in nonGrouped.Split('\0', System.StringSplitOptions.RemoveEmptyEntries))
                 {
                     matchResult = matchResult.Replace(token, $"<color={color}>{token}</color>");
                 }

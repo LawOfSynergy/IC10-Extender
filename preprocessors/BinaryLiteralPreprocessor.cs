@@ -11,12 +11,11 @@ namespace IC10_Extender.Preprocessors
     {
         public override string SimpleName => "binary_literal_preprocessor";
 
-        public override string HelpEntryName => $"<color={Color}>%</color>";
+        public override string HelpEntryName => $"<color={Colors.NUMBER}>%</color>";
 
         public override string HelpEntryDescription => "any valid binary numbers (0 or 1) will be parsed together as a binary value. You can use underscores to help with readability, but they have no functional use. As an example, %1111 or %11_11 will parse as 15.";
 
         public static readonly Regex Regex = new Regex("(?<=$|\\s)\\%([01_]+)");
-        public const string Color = "#20B2AA";
 
 
         public override PreprocessorOperation Create(ChipWrapper chip)
@@ -26,7 +25,7 @@ namespace IC10_Extender.Preprocessors
 
         public override SyntaxHighlighter Highlighter()
         {
-            return new RegexHighlighter(Regex, Color);
+            return new RegexHighlighter(Regex, Colors.NUMBER);
         }
 
         public class Instance : PreprocessorOperation

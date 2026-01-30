@@ -12,13 +12,11 @@ namespace IC10_Extender.Preprocessors
     {
         public override string SimpleName => "raw_hash_preprocessor";
 
-        public override string HelpEntryName => $"<color={Color}>RHASH(</color><color={InnerColor}>\"...\"</color><color={Color}>)</color>";
+        public override string HelpEntryName => $"<color={Colors.MACRO}>RHASH(</color><color={Colors.STRING}>\"...\"</color><color={Colors.MACRO}>)</color>";
 
         public override string HelpEntryDescription => "any text inside will be hashed to an integer before processing takes place. Use this to generate integer values for use wherever hashes are required. The original text is not maintained when compiled, and will be replaced with the raw computed value.";
 
         public static readonly Regex Regex = new Regex("(?<=$|\\s)RHASH\\(\"([^\"]+)\"\\)");
-        public const string Color = "colormacro";
-        public const string InnerColor = "colorstring";
 
         public override PreprocessorOperation Create(ChipWrapper chip)
         {
@@ -27,7 +25,7 @@ namespace IC10_Extender.Preprocessors
 
         public override SyntaxHighlighter Highlighter()
         {
-            return new RegexGroupHighlighter(Regex, Color, InnerColor);
+            return new RegexGroupHighlighter(Regex, Colors.MACRO, Colors.STRING);
         }
 
         public class Instance : PreprocessorOperation

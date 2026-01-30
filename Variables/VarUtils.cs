@@ -21,28 +21,81 @@ namespace IC10_Extender.Variables
             };
         }
 
-        public static VarFactory<double> RegisterLookup(int startIndex, int recurseCount = 1)
+        public static VarFactory<T> Failed<T>(T failedValue, Exception ex)
         {
             return (ctx) =>
             {
-                if (recurseCount < 1)
+                return (out T result, bool throwOnError) => {
+                    result = failedValue;
+                    if (throwOnError)
+                    {
+                        throw ex;
+                    }
+                    return false;
+                };
+            };
+        }
+
+        /**
+         * Returns the value stored in the register at the referenced AliasValue index
+         */
+        public static VarFactory<double> Lookup(this VarFactory<AliasValue?> source)
+        {
+            return (ctx) =>
+            {
+                Getter<double> getter = (out double result, bool throwOnError) =>
                 {
-                    throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.IncorrectVariable, ctx.lineNumber);
+                    source(ctx)(out var aliasValue, throwOnError);
+                    if (aliasValue == null)
+                    {
+                        if (throwOnError)
+                        {
+                            throw new ExtendedPCException(ctx.lineNumber, $"Could not find register.");
+                        }
+                        result = default;
+                        return false;
+                    }
+                    if ((aliasValue.Value.Target & AliasTarget.Register) == AliasTarget.None)
+                    {
+                        if (throwOnError)
+                        {
+                            throw new ExtendedPCException(ctx.lineNumber, $"Alias does not point to a register.");
+                        }
+                        result = default;
+                        return false;
+                    }
+                    result = ctx.chip.Registers[aliasValue.Value.Index];
+                    return true;
+                };
+                return getter;
+            };
+        }
+
+        /**
+         * Returns the AliasValue referencing the register at startIndex, following recurseCount lookups
+         */
+        public static VarFactory<AliasValue?> Register(int startIndex, int recurseCount = 0)
+        {
+            return (ctx) =>
+            {
+                if (recurseCount < 0)
+                {
+                    return Failed<AliasValue?>(null, new ExtendedPCException(ctx.lineNumber, $"recurseCount: expected >= 0, actual {recurseCount}"))(ctx);
                 }
 
                 if (startIndex < 0 || startIndex >= ctx.chip.Registers.Length)
                 {
-                    throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.OutOfRegisterBounds, ctx.lineNumber);
+                    return Failed<AliasValue?>(null, new ProgrammableChipException(ProgrammableChipException.ICExceptionType.OutOfRegisterBounds, ctx.lineNumber))(ctx);
                 }
 
-                Getter<double> getter = (out double result, bool throwOnError) =>
+                Getter<AliasValue?> getter = (out AliasValue? result, bool throwOnError) =>
                 {
-                    result = -1;
+                    var resultValue = startIndex;
                     int index = startIndex;
                     for (int i = 0; i < recurseCount; i++)
                     {
-                        result = ctx.chip.Registers[index];
-                        index = (int)result;
+                        resultValue = (int)ctx.chip.Registers[index];
+                        index = resultValue;
 
                         if (index < 0 || index >= ctx.chip.Registers.Length)
                         {
@@ -51,41 +104,61 @@ namespace IC10_Extender.Variables
                                 throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.OutOfRegisterBounds, ctx.lineNumber);
                             }
 
-                            result = -1;
+                            result = null;
                             return false;
                         }
                     }
+                    result = new AliasValue(AliasTarget.Register, resultValue);
                     return true;
                 };
                 return getter;
             };
         }
 
-        public static VarFactory<double> Register(bool allowDeviceComponent = false)
+        /** 
+         *  returns the register referenced by the context's token as resolved by alias or parsed as DR code.
+         *  If your command has an implicit register lookup, set impliedR to true to add one to the recurse count.
+         *  If this is part of a device lookup, set allowDeviceComponent to true to allow DR codes with the device component present.
+         *  0, impliedR:true => Register(0, 0) => AliasValue(0, AliasTarget.Register)
+         *  0, impliedR:false => Register(0, -1) => error
+         *  r0, impliedR:true => Register(0, 1) => AliasValue(value at register 0, AliasTarget.Register)
+         *  r0, impliedR:false => Register(0, 0) => AliasValue(0, AliasTarget.Register)
+         */
+        public static VarFactory<AliasValue?> Register(VarFactory<Dictionary<string, AliasValue>> aliasSource = null, bool allowDeviceComponent = false, bool impliedR = false)
         {
             return (ctx) =>
             {
+                Dictionary<string, AliasValue> aliases = null;
+                aliasSource?.Invoke(ctx)?.Invoke(out aliases, true);
+                aliases = aliases ?? new Dictionary<string, AliasValue>();
+
                 // Try to check aliases first
-                if (ctx.chip.Aliases.TryGetValue(ctx.token, out var alias) && (alias.Target & AliasTarget.Register) != 0)
+                if (aliases != null && aliases.TryGetValue(ctx.token, out var alias) && (alias.Target & AliasTarget.Register) != 0)
                 {
-                    return RegisterLookup(alias.Index)(ctx);
+                    return Register(alias.Index)(ctx);
                 }
 
                 // otherwise, parse DR code
                 var drCode = new DRCode(ctx.token);
-                int startIndex = drCode.index;
-                int recurseCount = drCode.regCount;
-                
+
                 if (!drCode.success)
                 {
                     throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.IncorrectVariable, ctx.lineNumber);
                 }
-                if(!allowDeviceComponent && drCode.isDevice)
+                if (!allowDeviceComponent && drCode.isDevice)
                 {
                     throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.IncorrectVariable, ctx.lineNumber);
                 }
 
-                return RegisterLookup(startIndex, recurseCount)(ctx);
+                int startIndex = drCode.index;
+                int recurseCount = drCode.regCount - (impliedR ? 0 : 1);
+
+                if(recurseCount < 0)
+                {
+                    return Failed<AliasValue?>(null, new ExtendedPCException(ctx.lineNumber, $"Cannot accept a negative recurse count. Did you forget to set 'impliedR:true'?"))(ctx);
+                }
+
+                return Register(startIndex, recurseCount)(ctx);
             };
         }
 
@@ -326,7 +399,7 @@ namespace IC10_Extender.Variables
 
                 // otherwise, parse DR code
                 var drCode = new DRCode(ctx.token);
-                var deviceIdSource = drCode.hasRegisterLookups ? Register(true)(ctx) : Constant<double>(drCode.index)(ctx);
+                var deviceIdSource = drCode.HasRegisterLookups ? Register(allowDeviceComponent:true).Lookup()(ctx) : Constant<double>(drCode.index)(ctx);
 
                 Getter<ILogicable> getter = (out ILogicable result, bool throwOnError) =>
                 {
@@ -414,10 +487,24 @@ namespace IC10_Extender.Variables
             };
         }
 
+        public static Getter<T> Try<T>(this VarFactory<T> source, Binding ctx)
+        {
+            try
+            {
+                return source(ctx);
+            }
+            catch (Exception e)
+            {
+                return Failed<T>(default, e)(ctx);
+            }
+        }
+
         public static VarFactory<T> Any<T>(params VarFactory<T>[] sources)
         {
             return (ctx) => {
-                var getters = sources.Select(source => source(ctx)).ToList();
+                var getters = sources
+                    .Select(source => source.Try(ctx))
+                    .ToList();
                 Getter<T> getter = (out T result, bool throwOnError) =>
                 {
                     foreach (var get in getters)
@@ -429,7 +516,7 @@ namespace IC10_Extender.Variables
                     }
                     if (throwOnError)
                     {
-                        throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.IncorrectVariable, ctx.lineNumber);
+                        throw new ExtendedPCException(ctx.lineNumber, $"No valid interpretation for {ctx.token}");
                     }
                     result = default;
                     return false;
@@ -638,6 +725,16 @@ namespace IC10_Extender.Variables
              return WithDefines().Concat(
                 WithConstants()
             );
+        }
+
+        public static Getter<T> Bind<T>(this VarFactory<T> factory, ChipWrapper chip, int lineNumber, string token)
+        {
+            return factory(new Binding(chip, lineNumber, token));
+        }
+
+        public static Getter<T> Bind<T>(this Variable<T> variable, ChipWrapper chip, int lineNumber, string token)
+        {
+            return variable.Build.Bind(chip, lineNumber, token);
         }
     }
 }

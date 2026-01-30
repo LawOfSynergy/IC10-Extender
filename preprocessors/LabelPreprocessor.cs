@@ -10,7 +10,7 @@ namespace IC10_Extender.Preprocessors
     public class LabelPreprocessor: Preprocessor
     {
         public override string SimpleName => "label_preprocessor";
-        public override string HelpEntryName => "<color=purple>NAME:</color>";
+        public override string HelpEntryName => $"<color={Colors.JUMP}>NAME:</color>";
         public override string HelpEntryDescription => "creates a jump label at the named line. j- and b- commands can use these labels in place of line numbers.";
 
         public override PreprocessorOperation Create(ChipWrapper chip)

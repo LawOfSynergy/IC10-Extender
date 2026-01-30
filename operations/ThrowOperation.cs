@@ -6,6 +6,7 @@ using IC10_Extender.Variables;
 using static IC10_Extender.Variables.Variables;
 using static Assets.Scripts.Objects.Electrical.ProgrammableChipException;
 
+
 namespace IC10_Extender.Operations
 {
     public class ThrowOperation : ExtendedOpCode
@@ -31,7 +32,7 @@ namespace IC10_Extender.Operations
 
         public override string Description()
         {
-            return "Forces the chip to stop with an error. May optionally receive an error code to set the containing device's <color=orange>Setting</color> to.";
+            return $"Forces the chip to stop with an error. May optionally receive an error code to set the containing device's <color={Colors.LOGICTYPE}>Setting</color> to.";
         }
 
         public class Instance : Operation
@@ -42,7 +43,7 @@ namespace IC10_Extender.Operations
             {
                 if (source.Length == 2)
                 {
-                    ErrorCodeGetter = ErrorCode.Build(new Binding(chip, lineNumber, source[1]));
+                    ErrorCodeGetter = ErrorCode.Bind(chip, lineNumber, source[1]);
                 }
             }
 

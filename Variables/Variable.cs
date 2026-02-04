@@ -2,6 +2,13 @@
 {
 
     public delegate bool Getter<T>(out T value, bool throwOnError = true);
+    /**
+     * Any checks for whether the token is valid should be done in this function, not in the Getter itself.
+     * This way, these errors can be reported at compile time rather than runtime.
+     * If you are wrapping a var factory, make sure to unwrap the getter (i.e. call the supplied VarFactory 
+     * with the binding to get the actual Getter) here so that compile errors correctly propogate at compile time.
+     * 
+     */
     public delegate Getter<T> VarFactory<T>(Binding binding);
 
     public readonly struct Variable<T>

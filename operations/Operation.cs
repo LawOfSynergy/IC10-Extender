@@ -1,5 +1,4 @@
 ﻿using Assets.Scripts.Objects.Electrical;
-using IC10_Extender.Wrappers;
 
 namespace IC10_Extender.Operations
 {
@@ -13,25 +12,32 @@ namespace IC10_Extender.Operations
         public readonly ChipWrapper Chip;
         public readonly int LineNumber;
 
+        public PreExecute PreExecute;
+        public PostExecute PostExecute;
+
         protected Operation(ChipWrapper chip, int lineNumber)
         {
             Chip = chip;
             LineNumber = lineNumber;
         }
 
-        public abstract int Execute(int index);
-
-        public static implicit operator ProgrammableChip._Operation(Operation op) => op is ReverseWrapper wrap ? wrap.op : new OperationWrapper(op);
-        public static implicit operator Operation(ProgrammableChip._Operation op) => op is OperationWrapper wrap ? wrap.op : new ReverseWrapper(op);
-
-        public static Operation NoOp(ChipWrapper chip, int lineNumber)
+        protected Operation(ChipWrapper chip, Line line) : this(chip, line.LineNumber)
         {
-            return NoOp(chip.chip, lineNumber);
+            PreExecute = line.PreExecute;
+            PostExecute = line.PostExecute;
         }
 
-        public static Operation NoOp(ProgrammableChip chip, int lineNumber)
+        public abstract int Execute(int index);
+
+        internal int ExecuteLifecycle(int index)
         {
-            return new OperationWrapper(new ProgrammableChip._NOOP_Operation(chip, lineNumber));
+            var preExec = IC10Extender.PreExecute + Chip.PreExecute + PreExecute;
+            preExec(this);
+            var result = Execute(index);
+            var postExec = IC10Extender.PostExecute + Chip.PostExecute + PostExecute;
+            postExec(this, ref result);
+
+            return result;
         }
     }
 }

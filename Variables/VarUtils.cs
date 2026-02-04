@@ -5,6 +5,7 @@ using IC10_Extender.Wrappers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection.Emit;
 
 namespace IC10_Extender.Variables
 {
@@ -21,31 +22,17 @@ namespace IC10_Extender.Variables
             };
         }
 
-        public static VarFactory<T> Failed<T>(T failedValue, Exception ex)
-        {
-            return (ctx) =>
-            {
-                return (out T result, bool throwOnError) => {
-                    result = failedValue;
-                    if (throwOnError)
-                    {
-                        throw ex;
-                    }
-                    return false;
-                };
-            };
-        }
-
         /**
          * Returns the value stored in the register at the referenced AliasValue index
          */
-        public static VarFactory<double> Lookup(this VarFactory<AliasValue?> source)
+        public static VarFactory<double> Resolve(this VarFactory<AliasValue?> source)
         {
             return (ctx) =>
             {
+                var aliasSource = source(ctx);
                 Getter<double> getter = (out double result, bool throwOnError) =>
                 {
-                    source(ctx)(out var aliasValue, throwOnError);
+                    aliasSource(out var aliasValue, throwOnError);
                     if (aliasValue == null)
                     {
                         if (throwOnError)
@@ -80,12 +67,12 @@ namespace IC10_Extender.Variables
             {
                 if (recurseCount < 0)
                 {
-                    return Failed<AliasValue?>(null, new ExtendedPCException(ctx.lineNumber, $"recurseCount: expected >= 0, actual {recurseCount}"))(ctx);
+                    throw new ExtendedPCException(ctx.lineNumber, $"recurseCount: expected >= 0, actual {recurseCount}");
                 }
 
                 if (startIndex < 0 || startIndex >= ctx.chip.Registers.Length)
                 {
-                    return Failed<AliasValue?>(null, new ProgrammableChipException(ProgrammableChipException.ICExceptionType.OutOfRegisterBounds, ctx.lineNumber))(ctx);
+                    throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.OutOfRegisterBounds, ctx.lineNumber);
                 }
 
                 Getter<AliasValue?> getter = (out AliasValue? result, bool throwOnError) =>
@@ -155,10 +142,29 @@ namespace IC10_Extender.Variables
 
                 if(recurseCount < 0)
                 {
-                    return Failed<AliasValue?>(null, new ExtendedPCException(ctx.lineNumber, $"Cannot accept a negative recurse count. Did you forget to set 'impliedR:true'?"))(ctx);
+                    throw new ExtendedPCException(ctx.lineNumber, $"Cannot accept a negative recurse count. Did you forget to set 'impliedR:true'?");
                 }
 
                 return Register(startIndex, recurseCount)(ctx);
+            };
+        }
+
+        public static VarFactory<double> AsDouble<TValue>(this VarFactory<TValue> source) where TValue : Enum
+        {
+            return (ctx) =>
+            {
+                var enumSource = source(ctx);
+                Getter<double> getter = (out double result, bool throwOnError) =>
+                {
+                    if (!enumSource(out TValue val, throwOnError))
+                    {
+                        result = -1;
+                        return false;
+                    }
+                    result = int.Parse(val.ToString("d"));
+                    return true;
+                };
+                return getter;
             };
         }
 
@@ -192,6 +198,25 @@ namespace IC10_Extender.Variables
                         return false;
                     }
                     result = (int)Math.Round(val);
+                    return true;
+                };
+                return getter;
+            };
+        }
+
+        public static VarFactory<int> AsInt<TValue>(this VarFactory<TValue> source) where TValue : Enum
+        {
+            return (ctx) =>
+            {
+                var enumSource = source(ctx);
+                Getter<int> getter = (out int result, bool throwOnError) =>
+                {
+                    if (!enumSource(out TValue val, throwOnError))
+                    {
+                        result = -1;
+                        return false;
+                    }
+                    result = int.Parse(val.ToString("d"));
                     return true;
                 };
                 return getter;
@@ -252,12 +277,32 @@ namespace IC10_Extender.Variables
             };
         }
 
+        public static VarFactory<Dictionary<TKey, double>> AsDouble<TKey, TValue>(this VarFactory<Dictionary<TKey, TValue>> source) where TValue : Enum
+        {
+            return (ctx) =>
+            {
+                var dictSource = source(ctx);
+                Getter<Dictionary<TKey, double>> getter = (out Dictionary<TKey, double> result, bool throwOnError) =>
+                {
+                    if (dictSource(out var enumDict, throwOnError))
+                    {
+                        result = enumDict.ToDictionary(kvp => kvp.Key, kvp => (double)int.Parse(kvp.Value.ToString("d")));
+                        return true;
+                    }
+                    result = null;
+                    return false;
+                };
+                return getter;
+            };
+        }
+
         public static VarFactory<Dictionary<TKey, long>> AsLong<TKey>(this VarFactory<Dictionary<TKey, double>> source)
         {
             return (ctx) => {
+                var dictSource = source(ctx);
                 Getter<Dictionary<TKey, long>> getter = (out Dictionary<TKey, long> result, bool throwOnError) =>
                 {
-                    if (source(ctx)(out var doubleDict, throwOnError)) {
+                    if (dictSource(out var doubleDict, throwOnError)) {
                         result = doubleDict.ToDictionary(kvp => kvp.Key, kvp => (long)Math.Round(kvp.Value));
                         return true;
                     }
@@ -271,11 +316,31 @@ namespace IC10_Extender.Variables
         public static VarFactory<Dictionary<TKey, int>> AsInt<TKey>(this VarFactory<Dictionary<TKey, double>> source)
         {
             return (ctx) => {
+                var dictSource = source(ctx);
                 Getter<Dictionary<TKey, int>> getter = (out Dictionary<TKey, int> result, bool throwOnError) =>
                 {
-                    if (source(ctx)(out var doubleDict, throwOnError))
+                    if (dictSource(out var doubleDict, throwOnError))
                     {
                         result = doubleDict.ToDictionary(kvp => kvp.Key, kvp => (int)Math.Round(kvp.Value));
+                        return true;
+                    }
+                    result = null;
+                    return false;
+                };
+                return getter;
+            };
+        }
+
+        public static VarFactory<Dictionary<TKey, int>> AsInt<TKey, TValue>(this VarFactory<Dictionary<TKey, TValue>> source) where TValue : Enum
+        {
+            return (ctx) =>
+            {
+                var dictSource = source(ctx);
+                Getter<Dictionary<TKey, int>> getter = (out Dictionary<TKey, int> result, bool throwOnError) =>
+                {
+                    if (dictSource(out var enumDict, throwOnError))
+                    {
+                        result = enumDict.ToDictionary(kvp => kvp.Key, kvp => int.Parse(kvp.Value.ToString("d")));
                         return true;
                     }
                     result = null;
@@ -288,9 +353,10 @@ namespace IC10_Extender.Variables
         public static VarFactory<Dictionary<TKey, short>> AsShort<TKey>(this VarFactory<Dictionary<TKey, double>> source)
         {
             return (ctx) => {
+                var dictSource = source(ctx);
                 Getter<Dictionary<TKey, short>> getter = (out Dictionary<TKey, short> result, bool throwOnError) =>
                 {
-                    if (source(ctx)(out var doubleDict, throwOnError))
+                    if (dictSource(out var doubleDict, throwOnError))
                     {
                         result = doubleDict.ToDictionary(kvp => kvp.Key, kvp => (short)Math.Round(kvp.Value));
                         return true;
@@ -305,9 +371,10 @@ namespace IC10_Extender.Variables
         public static VarFactory<Dictionary<TKey, byte>> AsByte<TKey>(this VarFactory<Dictionary<TKey, double>> source)
         {
             return (ctx) => {
+                var dictSource = source(ctx);
                 Getter<Dictionary<TKey, byte>> getter = (out Dictionary<TKey, byte> result, bool throwOnError) =>
                 {
-                    if (source(ctx)(out var doubleDict, throwOnError))
+                    if (dictSource(out var doubleDict, throwOnError))
                     {
                         result = doubleDict.ToDictionary(kvp => kvp.Key, kvp => (byte)Math.Round(kvp.Value));
                         return true;
@@ -322,9 +389,10 @@ namespace IC10_Extender.Variables
         public static VarFactory<Dictionary<TKey, bool>> AsBool<TKey>(this VarFactory<Dictionary<TKey, double>> source)
         {
             return (ctx) => {
+                var dictSource = source(ctx);
                 Getter<Dictionary<TKey, bool>> getter = (out Dictionary<TKey, bool> result, bool throwOnError) =>
                 {
-                    if (source(ctx)(out var doubleDict, throwOnError))
+                    if (dictSource(out var doubleDict, throwOnError))
                     {
                         result = doubleDict.ToDictionary(kvp => kvp.Key, kvp => Math.Round(kvp.Value) != 0);
                         return true;
@@ -380,18 +448,18 @@ namespace IC10_Extender.Variables
             };
         }
 
-        public static VarFactory<ILogicable> Device(VarFactory<Dictionary<string, AliasValue>> aliasesFactory, bool allowNull = false)
+        public static VarFactory<ILogicable> Device(VarFactory<Dictionary<string, AliasValue>> aliasSource, bool allowNull = false)
         {
             return (ctx) => {
                 
                 // Try to check aliases first
-                if (aliasesFactory(ctx)(out var aliases, true) && aliases.TryGetValue(ctx.token, out var alias))
+                if (aliasSource(ctx)(out var aliases, true) && aliases.TryGetValue(ctx.token, out var alias))
                 {
-                    if ((alias.Target & AliasTarget.Device) != AliasTarget.None)
+                    if (alias.Target.HasFlag(AliasTarget.Device))
                     {
                         return DeviceByIndexLookup(alias.Index)(ctx);
                     }
-                    if ((alias.Target & AliasTarget.Register) != AliasTarget.None)
+                    if (alias.Target.HasFlag(AliasTarget.Register))
                     {
                         return DeviceByIdLookup(alias.Index)(ctx);
                     }
@@ -399,7 +467,7 @@ namespace IC10_Extender.Variables
 
                 // otherwise, parse DR code
                 var drCode = new DRCode(ctx.token);
-                var deviceIdSource = drCode.HasRegisterLookups ? Register(allowDeviceComponent:true).Lookup()(ctx) : Constant<double>(drCode.index)(ctx);
+                var deviceIdSource = drCode.HasRegisterLookups ? Register(allowDeviceComponent:true).Resolve()(ctx) : Constant<double>(drCode.index)(ctx);
 
                 Getter<ILogicable> getter = (out ILogicable result, bool throwOnError) =>
                 {
@@ -441,13 +509,14 @@ namespace IC10_Extender.Variables
             };
         }
 
-        public static VarFactory<IMemoryWritable> AsWriteable(this VarFactory<ILogicable> factory)
+        public static VarFactory<IMemoryWritable> AsWritable(this VarFactory<ILogicable> source)
         {
             return (ctx) =>
             {
+                var lSource = source(ctx);
                 return (out IMemoryWritable writeable, bool throwOnError) =>
                 {
-                    if (!factory(ctx)(out var logicable, throwOnError))
+                    if (!lSource(out var logicable, throwOnError))
                     {
                         writeable = null;
                         return false;
@@ -464,13 +533,14 @@ namespace IC10_Extender.Variables
             };
         }
 
-        public static VarFactory<IMemoryReadable> AsReadable(this VarFactory<ILogicable> factory)
+        public static VarFactory<IMemoryReadable> AsReadable(this VarFactory<ILogicable> source)
         {
             return (ctx) =>
             {
+                var lSource = source(ctx);
                 return (out IMemoryReadable readable, bool throwOnError) =>
                 {
-                    if (!factory(ctx)(out var logicable, throwOnError))
+                    if (!lSource(out var logicable, throwOnError))
                     {
                         readable = null;
                         return false;
@@ -487,24 +557,46 @@ namespace IC10_Extender.Variables
             };
         }
 
-        public static Getter<T> Try<T>(this VarFactory<T> source, Binding ctx)
+        public static VarFactory<IMemoryReadWritable> AsReadWritable(this VarFactory<ILogicable> source)
         {
-            try
+            return (ctx) =>
             {
-                return source(ctx);
-            }
-            catch (Exception e)
-            {
-                return Failed<T>(default, e)(ctx);
-            }
+                var lSource = source(ctx);
+                return (out IMemoryReadWritable result, bool throwOnError) =>
+                {
+                    if (!lSource(out var logicable, throwOnError))
+                    {
+                        result = null;
+                        return false;
+                    }
+
+                    try
+                    {
+                        result = new MemoryReadWritableWrapper(logicable, ctx.lineNumber);
+                        return true;
+                    } catch (Exception ex)
+                    {
+                        if (throwOnError) throw ex;
+                        result = null;
+                        return false;
+                    }
+                };
+            };
         }
 
-        public static VarFactory<T> Any<T>(params VarFactory<T>[] sources)
+        public static VarFactory<T> Any<T>(Exception compileError = null, Exception runtimeError = null, params VarFactory<T>[] sources)
         {
             return (ctx) => {
                 var getters = sources
-                    .Select(source => source.Try(ctx))
+                    .Select(source =>
+                    {
+                        try { return source(ctx); } catch { return null; }
+                    })
+                    .Where(source => source != null)
                     .ToList();
+
+                if (getters.Count < 1) throw compileError ?? new ExtendedPCException(ctx.lineNumber, $"No valid interpretation for {ctx.token}");
+
                 Getter<T> getter = (out T result, bool throwOnError) =>
                 {
                     foreach (var get in getters)
@@ -516,7 +608,7 @@ namespace IC10_Extender.Variables
                     }
                     if (throwOnError)
                     {
-                        throw new ExtendedPCException(ctx.lineNumber, $"No valid interpretation for {ctx.token}");
+                        throw runtimeError ?? new ExtendedPCException(ctx.lineNumber, $"No interperetation for {ctx.token} succeeded at runtime");
                     }
                     result = default;
                     return false;
@@ -528,9 +620,10 @@ namespace IC10_Extender.Variables
         public static VarFactory<T> Lookup<T>(VarFactory<Dictionary<string, T>> WithMappings)
         {
             return (ctx) => {
+                var mappingSource = WithMappings(ctx);
                 Getter<T> getter = (out T result, bool throwOnError) =>
                 {
-                    WithMappings(ctx)(out var mappings, throwOnError);
+                    mappingSource(out var mappings, throwOnError);
                     if (mappings.TryGetValue(ctx.token, out result))
                     {
                         return true;
@@ -546,31 +639,30 @@ namespace IC10_Extender.Variables
             };
         }
 
-        public static VarFactory<T> Substitute<T>(this VarFactory<T> wrapped, VarFactory<Dictionary<string, string>> WithSubstitutions)
+        public static VarFactory<T> WithSubstitutions<T>(this VarFactory<T> wrapped, VarFactory<Dictionary<string, string>> source)
         {
             return (ctx) => {
-                Getter<T> getter = (out T result, bool throwOnError) =>
+                //true here to fail-fast if something is wrong with the substitution source, despite the actual existence of a matching substitute being optional
+                source(ctx)(out var substitutions, true); 
+
+                if (substitutions.TryGetValue(ctx.token, out string substituted))
                 {
-                    WithSubstitutions(ctx)(out var substitutions, throwOnError);
-                    if (substitutions.TryGetValue(ctx.token, out string substituted))
-                    {
-                        ctx.token = substituted;
-                    }
-                    return wrapped(ctx)(out result, throwOnError);
-                };
-                return getter;
+                    ctx.token = substituted;
+                }
+                return wrapped(ctx);
             };
         }
 
         public static VarFactory<Dictionary<TKey, TValue>> Concat<TKey, TValue>(params VarFactory<Dictionary<TKey, TValue>>[] sources)
         {
             return (ctx) => {
+                var getters = sources.Select(src => src(ctx)).ToList();
                 Getter<Dictionary<TKey, TValue>> getter = (out Dictionary<TKey, TValue> result, bool throwOnError) =>
                 {
                     result = new Dictionary<TKey, TValue>();
-                    foreach (var source in sources)
+                    foreach (var get in getters)
                     {
-                        source(ctx)(out var dict, throwOnError);
+                        get(out var dict, throwOnError);
                         foreach (var kvp in dict)
                         {
                             result[kvp.Key] = kvp.Value;
@@ -616,7 +708,7 @@ namespace IC10_Extender.Variables
             return (ctx) => {
                 Getter<Dictionary<string, AliasValue>> getter = (out Dictionary<string, AliasValue> result, bool throwOnError) =>
                 {
-                    result = ctx.chip.Aliases.Where(kvp => (kvp.Value.Target & filter) != AliasTarget.None).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+                    result = ctx.chip.Aliases.Where(kvp => filter.HasFlag(kvp.Value.Target)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
                     return true;
                 };
                 return getter;
@@ -629,6 +721,30 @@ namespace IC10_Extender.Variables
                 Getter<Dictionary<string, int>> getter = (out Dictionary<string, int> result, bool throwOnError) =>
                 {
                     result = ctx.chip.JumpTags;
+                    return true;
+                };
+                return getter;
+            };
+        }
+
+        public static VarFactory<Dictionary<string, T>> WithEnum<T>() where T : Enum
+        {
+            return (ctx) =>
+            {
+                Getter<Dictionary<string, T>> getter = (out Dictionary<string, T> result, bool throwOnError) =>
+                {
+                    result = new Dictionary<string, T>();
+                    try { 
+                        foreach (var name in Enum.GetNames(typeof(T)))
+                        {
+                            result.Add(name, (T)Enum.Parse(typeof(T), name));
+                        }
+                    } catch (Exception e)
+                    {
+                        if (throwOnError) throw e;
+                        result = new Dictionary<string, T>();
+                        return false;
+                    }
                     return true;
                 };
                 return getter;

@@ -38,7 +38,7 @@ namespace IC10_Extender.Compat
                 //if line was given a forced operation during preprocessing, use that operation
                 if (op != null)
                 {
-                    opRef.SetValue(__instance, (ProgrammableChip._Operation)new OpContext(op, line));
+                    opRef.SetValue(__instance, new IC10AsLegacyOpWrapper(op));
                     return __state = false;
                 }
 
@@ -46,7 +46,7 @@ namespace IC10_Extender.Compat
                 //if line is empty, operation is noop
                 if (tokens.Length == 0)
                 {
-                    opRef.SetValue(__instance, (ProgrammableChip._Operation)new OpContext(new ProgrammableChip._NOOP_Operation(chip, lineNumber), line));
+                    opRef.SetValue(__instance, new IC10AsLegacyOpWrapper(new NoOpOperation(chip.Wrap(), line)));
                     return __state = false;
                 }
 
@@ -54,7 +54,7 @@ namespace IC10_Extender.Compat
                 //if opcode exists in this library, use that opcode
                 if (opCode != null)
                 {
-                    opRef.SetValue(__instance, (ProgrammableChip._Operation)new OpContext(opCode.Create(chip.Wrap(), lineNumber, tokens), line));
+                    opRef.SetValue(__instance, new IC10AsLegacyOpWrapper(opCode.Create(chip.Wrap(), lineNumber, tokens)));
                     return __state = false;
                 }
 
@@ -79,7 +79,7 @@ namespace IC10_Extender.Compat
             
             if(__state) //vanilla logic ran. Wrap in OpContext
             {
-                opRef.SetValue(__instance, new OperationWrapper(new OpContext(new ReverseWrapper((ProgrammableChip._Operation)opRef.GetValue(__instance)), line)));
+                opRef.SetValue(__instance, new IC10AsLegacyOpWrapper(new LegacyAsIC10OpWrapper((ProgrammableChip._Operation)opRef.GetValue(__instance), line)));
             }
 
             // set LineOfCode to display value now that operation has finished constructing, regardless of modded or vanilla
@@ -155,7 +155,7 @@ namespace IC10_Extender.Compat
 
             int num = runCount;
 
-            var ops = chip.Operations;
+            var ops = chip.RawOperations;
 
             while (num-- > 0 && chip.NextAddr >= 0 && chip.NextAddr < chip.LinesOfCode.Count)
             {
@@ -335,7 +335,7 @@ namespace IC10_Extender.Compat
                     if (__instance.Description)
                         __instance.Description.text = ProgrammableChip.GetIntroString();
                     IC10Extender.Preprocessors.Do(preprocessor => preprocessor.InitHelpPage(__instance));
-                    ProgrammableChip.AllConstants.Concat(IC10Extender.Constants.Values).Do(constant =>
+                    ProgrammableChip.AllConstants.Do(constant =>
                     {
                         HelpReference helpReference = UnityEngine.Object.Instantiate(__instance.ReferencePrefab, __instance.FunctionTransform);
                         helpReference.Setup(constant, __instance.DefaultItemImage2);

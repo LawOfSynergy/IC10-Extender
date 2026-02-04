@@ -2,10 +2,11 @@
 
 namespace IC10_Extender.Operations
 {
-    public class OperationWrapper : ProgrammableChip._Operation
+    public class LegacyAsIC10OpWrapper : Operation
     {
-        public readonly Operation op;
-        public OperationWrapper(Operation op) : base(op.Chip.chip, op.LineNumber)
+        public readonly ProgrammableChip._Operation op;
+
+        public LegacyAsIC10OpWrapper(ProgrammableChip._Operation op, Line line) : base(op._Chip.Wrap(), line)
         {
             this.op = op;
         }

@@ -4,6 +4,7 @@ using Assets.Scripts.Objects.Pipes;
 using IC10_Extender.Exceptions;
 using IC10_Extender.Variables;
 using static IC10_Extender.Variables.Variables;
+using static Assets.Scripts.Objects.Motherboards.LogicType;
 using static Assets.Scripts.Objects.Electrical.ProgrammableChipException;
 
 
@@ -53,11 +54,11 @@ namespace IC10_Extender.Operations
                 ILogicable self = Chip.CircuitHousing.GetLogicableFromIndex(drCode.index, drCode.network);
                 if(ErrorCodeGetter(out var errorCode, false))
                 {
-                    if (!self.CanLogicWrite(LogicType.Setting))
+                    if (!self.CanLogicWrite(Setting))
                     {
                         throw new ProgrammableChipException(ICExceptionType.IncorrectLogicType, LineNumber);
                     }
-                    self.SetLogicValue(LogicType.Setting, errorCode);
+                    self.SetLogicValue(Setting, errorCode);
                 } else
                 {
                     errorCode = 0;

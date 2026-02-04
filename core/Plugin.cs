@@ -13,17 +13,47 @@ namespace IC10_Extender
     [BepInPlugin("net.lawofsynergy.stationeers.ic10e", "IC10 Extender", "0.2.1.0")]
     public class Plugin : BaseUnityPlugin
     {
-        public static new ManualLogSource Logger;
+        public static new ManualLogSource Logger { get; private set; }
+        public static Plugin Instance { get; private set; }
 
-        public static ManualLogSource GetLogger()
+        public FeatureFlag<bool> AddPreprocessorVariants { get; private set; }
+        public FeatureFlag<bool> LabelsCanShareLine { get; private set; }
+
+        public Plugin()
         {
-            return Logger;
+            if (Instance != null)
+            {
+                throw new InvalidOperationException("Duplicate instance of IC10 Extender detected!");
+            }
+
+            Logger = base.Logger;
+            Instance = this;
+        }
+
+        private void InitConfig()
+        {
+            AddPreprocessorVariants = new FeatureFlag<bool>(
+                Config.Bind(
+                    "Features",
+                    "AddPreprocessorVariants",
+                    false,
+                    "If true, adds variants of existing preprocessors (such as HASH(...) vs RHASH(...)) that replace the original source text with the calculated value. " +
+                    "The original text is not preserved on chip reload when using these variants."
+                )
+            );
+
+            LabelsCanShareLine = new FeatureFlag<bool>(
+                Config.Bind(
+                    "Features",
+                    "LabelsCanShareLine",
+                    false,
+                    "If true, a label can be followed by a statement on the same line. If false, the vanilla behavior of a label having to take up a whole line is be used."
+                )
+            );
         }
 
         void Awake()
         {
-            Logger = base.Logger;
-
             UnityEngine.Debug.Log("Loading Mod");
             Logger.LogInfo("Loading Mod");
             try
@@ -47,7 +77,6 @@ namespace IC10_Extender
 
             DefaultPreprocessors.Register();
             IC10Extender.Register(new ThrowOperation());
-            DefaultConstants.RegisterAll();
             Colors.Register();
         }
     }

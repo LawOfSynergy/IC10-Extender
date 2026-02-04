@@ -132,9 +132,8 @@ namespace IC10_Extender
         }
 
         public List<string> LinesOfCode => chip._LinesOfCode.Select(loc => loc.ToString()).ToList();
-        public List<ProgrammableChip._Operation> Operations => chip._LinesOfCode.Select(loc => loc.Operation).ToList();
-        public List<OpContext> OperationContexts => chip._LinesOfCode.Select(loc => (loc.Operation as OperationWrapper).op as OpContext).ToList();
-        public List<Operation> UnwrappedOperations => chip._LinesOfCode.Select(loc => ((loc.Operation as OperationWrapper).op as OpContext).op).ToList();
+        public List<ProgrammableChip._Operation> RawOperations => chip._LinesOfCode.Select(loc => loc.Operation).ToList();
+        public List<Operation> Operations => chip._LinesOfCode.Select(loc => (loc.Operation as IC10AsLegacyOpWrapper).op).ToList();
 
         private ProgrammableChipException _compileException;
         public ProgrammableChipException CompileException

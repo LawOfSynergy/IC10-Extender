@@ -31,7 +31,7 @@ namespace IC10_Extender
         public static Dictionary<string, double> ConstantValues => ProgrammableChip.AllConstants.ToDictionary(c => c.Literal, c => c.Value);
         public static Dictionary<string, string> Colors => new Dictionary<string, string>(colors);
 
-        public static void Register(ExtendedOpCode op, params CompatabilityCheck[] requires)
+        public static void Register(ExtendedOpCode op, params CompatibilityCheck[] requires)
         {
             foreach (var accept in requires)
             {
@@ -49,7 +49,7 @@ namespace IC10_Extender
         }
 
         //an index can be provided in case execution order needs to be modified. Defaults to adding to the end of the list (executes last)
-        public static void Register(Preprocessor preprocessor, int index = -1, params CompatabilityCheck[] requires)
+        public static void Register(Preprocessor preprocessor, int index = -1, params CompatibilityCheck[] requires)
         {
             foreach (var accept in requires)
             {
@@ -72,7 +72,7 @@ namespace IC10_Extender
             }
         }
 
-        public static void Register(ProgrammableChip.Constant constant, params CompatabilityCheck[] requires)
+        public static void Register(ProgrammableChip.Constant constant, params CompatibilityCheck[] requires)
         {
             foreach (var accept in requires)
             {
@@ -88,7 +88,7 @@ namespace IC10_Extender
             ProgrammableChip.AllConstants = ProgrammableChip.AllConstants.Append(constant).ToArray();
         }
 
-        public static void RegisterColor(string name, string value, params CompatabilityCheck[] requires)
+        public static void RegisterColor(string name, string value, params CompatibilityCheck[] requires)
         {
             foreach (var accept in requires)
             {

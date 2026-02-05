@@ -2,7 +2,7 @@
 
 namespace IC10_Extender.Compat
 {
-    public class CustomCheck : CompatabilityCheck
+    public class CustomCheck : CompatibilityCheck
     {
         private Func<bool> accept;
         private Action onFail;

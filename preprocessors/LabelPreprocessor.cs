@@ -1,22 +1,23 @@
 ﻿using Assets.Scripts.Objects.Electrical;
+using IC10_Extender.Compat;
 using IC10_Extender.Operations;
+using Objects.Rockets.Scanning;
 using System;
+using System.Text.RegularExpressions;
 using static Assets.Scripts.Objects.Electrical.ProgrammableChipException;
 
 namespace IC10_Extender.Preprocessors
 {
     /// <summary>
     /// Since this preprocessor assigns jump labels, this MUST be run after all preprocessors that remove or add lines.
-    /// 
-    /// TODO: add feature flag to allow jump labels to be followed by an opcode on the same line (e.g. "tmp: j 10") instead of forcing noop
     /// </summary>
     public class LabelPreprocessor: Preprocessor
     {
         public override string SimpleName => "label_preprocessor";
         public override string HelpEntryName => $"<color={Colors.JUMP}>NAME:</color>";
-        public override string HelpEntryDescription => "creates a jump label at the named line. j- and b- commands can use these labels in place of line numbers.";
+        public override string HelpEntryDescription => "creates a jump label at the named line. These can used in place of line numbers, like in j- and b- commands.";
 
-        public const string Regex = @"^(?<label>[a-zA-Z][a-zA-Z0-9_]*):(?:\s+(?<remainder>.*))?";
+        public const string Pattern = @"^(?<label>[^:\s]*):(?:\s+(?<remainder>.*))?";
 
         public override PreprocessorOperation Create(ChipWrapper chip)
         {
@@ -29,21 +30,42 @@ namespace IC10_Extender.Preprocessors
 
             public override Line? ProcessLine(Line line)
             {
+                bool sharedLines = CompatibilityCheck.LabelsCanShareLineEnabled.Accept();
                 try
                 {
                     if (string.IsNullOrEmpty(line.Raw)) return line;
 
-                    var tokens = line.Raw.Split(new char[0], StringSplitOptions.RemoveEmptyEntries);
-                    if (tokens.Length == 1 && tokens[0].Length > 2 && tokens[0][tokens[0].Length - 1] == ':')
-                    {
-                        line.ForcedOp = new NoOpOperation(Chip, line);
-                        string key = tokens[0].Substring(0, tokens[0].Length - 1);
-                        if (Chip.chip._JumpTags.ContainsKey(key))
+                    if (sharedLines) { 
+                        for (var results = Regex.Match(line.Raw, Pattern); results.Success; )
                         {
-                            throw new ProgrammableChipException(ICExceptionType.JumpTagDuplicate, line.OriginatingLineNumber);
+                            string label = results.Groups["label"].Value;
+                            if (Chip.chip._JumpTags.ContainsKey(label))
+                            {
+                                throw new ProgrammableChipException(ICExceptionType.JumpTagDuplicate, line.LineNumber);
+                            }
+                            Chip.chip._JumpTags.Add(label, line.LineNumber);
+                            line.Raw = results.Groups["remainder"].Value;
                         }
-                        Chip.chip._JumpTags.Add(key, line.OriginatingLineNumber);
+                    } else
+                    {
+                        var results = Regex.Match(line.Raw, Pattern);
+
+                        //if no match, or sharing line, not a valid label. return without operating
+                        if (!results.Success || results.Groups["remainder"].Length > 0)
+                        {
+                            return line;
+                        }
+
+                        string label = results.Groups["label"].Value;
+                        if (Chip.chip._JumpTags.ContainsKey(label))
+                        {
+                            throw new ProgrammableChipException(ICExceptionType.JumpTagDuplicate, line.LineNumber);
+                        }
+                        Chip.chip._JumpTags.Add(label, line.LineNumber);
+                        line.ForcedOp = new NoOpOperation(Chip, line);
                     }
+
+
                     return line;
                 }
                 catch (Exception ex)

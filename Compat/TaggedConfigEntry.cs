@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace IC10_Extender.Compat
 {
-    public class FeatureFlag<T>
+    public class TaggedConfigEntry<T>
     {
         private readonly ConfigEntry<T> value;
         private T initialValue;
@@ -15,7 +15,7 @@ namespace IC10_Extender.Compat
 
         private bool requiresRestart = false;
 
-        public event Action<FeatureFlag<T>> OnValueChanged;
+        public event Action<TaggedConfigEntry<T>> OnValueChanged;
 
         /**
          * The current value of this feature flag. If this flag requires a restart to take effect, this will return the initial value until a restart is performed.
@@ -46,7 +46,7 @@ namespace IC10_Extender.Compat
         public bool RequireRestartOnChange => requireRestartOnChange;
         public bool RequiresRestart => requiresRestart;
 
-        public FeatureFlag(ConfigEntry<T> value, bool requireRestartOnChange = false)
+        public TaggedConfigEntry(ConfigEntry<T> value, bool requireRestartOnChange = false)
         {
             this.value = value;
             initialValue = value.Value;

@@ -1,9 +1,9 @@
 ﻿namespace IC10_Extender.Compat
 {
-    public class ConstantCompatability : CompatabilityCheck
+    public class ConstantCompatibility : CompatibilityCheck
     {
         public bool Condition { get; private set; }
-        public ConstantCompatability(bool condition) {
+        public ConstantCompatibility(bool condition) {
             Condition = condition;
         }
 

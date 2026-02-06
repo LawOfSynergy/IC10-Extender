@@ -30,7 +30,7 @@ namespace IC10_Extender.Preprocessors
 
             public override Line? ProcessLine(Line line)
             {
-                bool sharedLines = CompatibilityCheck.LabelsCanShareLineEnabled.Accept();
+                bool sharedLines = Plugin.Instance.LabelsCanShareLineEnabled.Accept();
                 try
                 {
                     if (string.IsNullOrEmpty(line.Raw)) return line;

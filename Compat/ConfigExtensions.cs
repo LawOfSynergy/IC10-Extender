@@ -10,6 +10,7 @@ namespace IC10_Extender.Compat
         public const string DisplayName = "DisplayName";
         public const string RequireRestart = "RequireRestart";
         public const string Visible = "Visible";
+        public const string Enabled = "Enabled";
 
         public static CompatibilityCheck Equals<T>(this ConfigEntry<T> feature, T value, Action onFail = null)
         {
@@ -41,13 +42,14 @@ namespace IC10_Extender.Compat
             return new CustomCheck(() => !feature.Value.HasFlag(flag), onFail);
         }
 
-        public static object[] WithTags(int order, string displayName, bool requireRestart = true, bool visible = true)
+        public static object[] WithTags(int order, string displayName, bool requireRestart = true, bool visible = true, bool enabled = true)
         {
             return new object[] {
                 new KeyValuePair<string, int>(Order, order),
                 new KeyValuePair<string, string>(DisplayName, displayName),
                 new KeyValuePair<string, bool>(RequireRestart, requireRestart),
-                new KeyValuePair<string, bool>(Visible, visible)
+                new KeyValuePair<string, bool>(Visible, visible),
+                new KeyValuePair<string, bool>(Enabled, enabled)
             };
         }
     }

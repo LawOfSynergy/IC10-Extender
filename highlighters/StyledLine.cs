@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Assets.Scripts.Util;
+using Objects.Rockets.Scanning;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,7 +31,7 @@ namespace IC10_Extender.Highlighters
             "darkgrey"
         );
 
-        private Dictionary<string, string> colors;
+        private Dictionary<string, string> colors = new Dictionary<string, string>();
 
         public string Macro => this[nameof(Macro)];
         public string Register => this[nameof(Register)];
@@ -79,21 +81,23 @@ namespace IC10_Extender.Highlighters
             Dictionary<string, string> additional = null
         )
         {
-            this[nameof(Macro)] = macro;
-            this[nameof(Register)] = register;
-            this[nameof(Number)] = number;
-            this[nameof(Network)] = network;
-            this[nameof(Comment)] = comment;
-            this[nameof(Help)] = help;
-            this[nameof(String)] = str;
-            this[nameof(OpCode)] = opCode;
-            this[nameof(LogicType)] = logicType;
-            this[nameof(LogicSlotType)] = logicSlotType;
-            this[nameof(Device)] = device;
-            this[nameof(Jump)] = jump;
-            this[nameof(Error)] = error;
-            this[nameof(Description)] = description;
-            this[nameof(Example)] = example;
+            Add(nameof(Macro), macro);
+            Add(nameof(Register), register);
+            Add(nameof(Number), number);
+            Add(nameof(Network), network);
+            Add(nameof(Comment), comment);
+            Add(nameof(Help), help);
+            Add(nameof(String), str);
+            Add(nameof(OpCode), opCode);
+            Add(nameof(LogicType), logicType);
+            Add(nameof(LogicSlotType), logicSlotType);
+            Add(nameof(Device), device);
+            Add(nameof(Jump), jump);
+            Add(nameof(Error), error);
+            Add(nameof(Description), description);
+            Add(nameof(Example), example);
+
+            if(additional != null) AddAll(additional);
         }
 
         public bool ContainsKey(string key)
@@ -107,9 +111,35 @@ namespace IC10_Extender.Highlighters
             colors.Add(key, value);
         }
 
+        public void Add(KeyValuePair<string, string> item)
+        {
+            Add(item.Key, item.Value);
+        }
+
+        public void AddAll(Dictionary<string, string> additional)
+        {
+            foreach (var kvp in additional)
+            {
+                Add(kvp.Key, kvp.Value);
+            }
+        }
+
         public void Override(string key, string value)
         {
             colors.Add(key, value);
+        }
+
+        public void Override(KeyValuePair<string, string> item)
+        {
+            Override(item.Key, item.Value);
+        }
+
+        public void OverrideAll(Dictionary<string, string> additional)
+        {
+            foreach (var kvp in additional)
+            {
+                Override(kvp.Key, kvp.Value);
+            }
         }
 
         public bool Remove(string key)
@@ -120,16 +150,6 @@ namespace IC10_Extender.Highlighters
         public bool TryGetValue(string key, out string value)
         {
             return colors.TryGetValue(key, out value);
-        }
-
-        public void Add(KeyValuePair<string, string> item)
-        {
-            Add(item.Key, item.Value);
-        }
-
-        public void Override(KeyValuePair<string, string> item)
-        {
-            Override(item.Key, item.Value);
         }
 
         public void Clear()
@@ -167,7 +187,7 @@ namespace IC10_Extender.Highlighters
     {
         public readonly Theme Theme;
         public readonly string Original;
-        private readonly List<Token> remainder = new List<Token>();
+        private List<Token> remainder = new List<Token>();
         
         private readonly List<Token> Tokens = new List<Token>();
 
@@ -175,126 +195,143 @@ namespace IC10_Extender.Highlighters
         {
             Theme = theme;
             Original = original;
-            remainder.Add(new Token(this, original, 0, original.Length, null));
+            remainder.Add(new Token(this, original, 0, null));
         }
 
         public void Consume(string token, string color)
         {
-            if(TryConsume(token, color, 0, false, out var before, out var after, out var consumed, out var remaining))
+            if(TryConsume(token, color, 0, false, out var consumed, out var remaining))
             {
-                Tokens.AddRange(consumed);
-                remainder.Clear();
-                remainder.AddRange(remaining);
-                if(before.HasValue) remainder.Add(before.Value);
-                if(after.HasValue) remainder.Add(after.Value);
+                remaining.Sort((a, b) => a.StartIndex.CompareTo(b.StartIndex));
+                remainder = remaining;
 
+                Tokens.AddRange(consumed);
                 Tokens.Sort((a, b) => a.StartIndex.CompareTo(b.StartIndex));
-                remainder.Sort((a, b) => a.StartIndex.CompareTo(b.StartIndex));
             }
         }
 
         public void ConsumeAll(string token, string color)
         {
-            while (TryConsume(token, color, 0, false, out var before, out var after, out var consumed, out var remaining))
+            while (TryConsume(token, color, 0, false, out var consumed, out var remaining))
             {
                 Tokens.AddRange(consumed);
-                remainder.Clear();
-                remainder.AddRange(remaining);
-                if (before.HasValue) remainder.Add(before.Value);
-                if (after.HasValue) remainder.Add(after.Value);
+                remaining.Sort((a, b) => a.StartIndex.CompareTo(b.StartIndex));
+                remainder = remaining;
             }
             Tokens.Sort((a, b) => a.StartIndex.CompareTo(b.StartIndex));
-            remainder.Sort((a, b) => a.StartIndex.CompareTo(b.StartIndex));
         }
 
-        private bool TryConsume(string token, string color, int tokenIndex, bool inMatch, out Token? before, out Token? after, out List<Token> consumedTokens, out List<Token> remaining)
+        private bool TryConsume(string token, string color, int tokenIndex, bool inSpan, out List<Token> consumedTokens, out List<Token> remaining)
         {
+            Console.WriteLine($"TryConsume(Token:\"{token}\", color:\"{color}\", tokenIndex:{tokenIndex}, inSpan:{inSpan}");
+
             if (tokenIndex < 0) throw new ArgumentOutOfRangeException(nameof(tokenIndex));
             if (token == null) throw new ArgumentNullException(nameof(token));
             if (token.Length == 0) throw new ArgumentException("token must have at least one character");
             if (color == null) throw new ArgumentNullException(nameof(color));
 
-            before = null;
-            after = null;
-
             if (tokenIndex >= remainder.Count) //end of list, hard fail
             {
+                Console.WriteLine("End of list, hard fail");
                 consumedTokens = new List<Token>();
                 remaining = remainder.ToList();
+                Console.WriteLine($"Returning false (consumedTokens:{consumedTokens.ToArrayString()}, remaining: {remaining.ToArrayString()}");
                 return false;
             }
 
             var len = token.Length;
             var pattern = compile(token);
 
-            var result = pattern.Match(remainder[tokenIndex].Text).Groups[0];
-
-            if (result.Length == 0) // no match
+            
+            for(var result = pattern.Match(remainder[tokenIndex].Text); result.Success; result = pattern.Match(remainder[tokenIndex].Text, result.Index+1))
             {
-                if (!inMatch) //start again from next token, since we still have full token list
-                {
-                    return TryConsume(token, color, tokenIndex + 1, inMatch, out before, out after, out consumedTokens, out remaining);
-                }
+                Token? before = null;
+                Token? after = null;
 
-                //this attempt failed. backtrack and try again.
-                consumedTokens = new List<Token>();
-                remaining = remainder.ToList();
-                return false;
-            }
+                Console.WriteLine($"Match(Value:{result.Value}, Index:{result.Index}, Length:{result.Length})");
+                if (result.Index != 0) //doesn't start at beginning of token
+                {
+                    Console.WriteLine("Doesn't start at beginning of token");
+                    if (inSpan) //then not a contiguous match, return false
+                    {
+                        Console.WriteLine("Not a contiguous match");
+                        consumedTokens = new List<Token>();
+                        remaining = remainder.ToList();
+                        Console.WriteLine($"Returning false (before:{before}, after:{after},\nconsumedTokens:{consumedTokens.ToArrayString()}, remaining: {remaining.ToArrayString()}");
+                        return false;
+                    }
 
-            if (result.Index > 0) // if partial match does not start at beginning
-            {
-                if(inMatch) // not a contiguous match
-                {
-                    consumedTokens = new List<Token>();
-                    remaining = remainder.ToList();
-                    return false;
-                } else // start of new match, with before component
-                {
+                    // else new start of match, with potential before token
                     var beforeText = remainder[tokenIndex].Text.Substring(0, result.Index);
-                    before = new Token(this, beforeText, remainder[tokenIndex].StartIndex, beforeText.Length, null);
-                }
-            }
-
-            if (result.Length == token.Length) // full match
-            {
-                if (result.Index + result.Length < remainder[tokenIndex].Length) //with after component
-                {
-                    var afterText = remainder[tokenIndex].Text.Substring(result.Index + result.Length);
-                    after = new Token(this, afterText, remainder[tokenIndex].StartIndex + result.Index + result.Length, afterText.Length, null);
+                    before = new Token(this, beforeText, remainder[tokenIndex].StartIndex, null);
+                    Console.WriteLine($"Setting potential before token: {before}");
                 }
 
-                consumedTokens = new List<Token>
+                if (result.Length == token.Length) // full match
                 {
-                    new Token(this, result.Value, remainder[tokenIndex].StartIndex + result.Index, result.Length, color)
-                };
+                    Console.WriteLine("Full match");
+                    if (result.Index + result.Length < remainder[tokenIndex].Length) //with after component
+                    {
+                        var afterText = remainder[tokenIndex].Text.Substring(result.Index + result.Length);
+                        after = new Token(this, afterText, remainder[tokenIndex].StartIndex + result.Index + result.Length, null);
+                        Console.WriteLine($"Setting after token: {after}");
+                    }
 
-                remaining = remainder.ToList();
-                remaining.Remove(remainder[tokenIndex]);
-                return true;
-            }
+                    consumedTokens = new List<Token>
+                    {
+                        new Token(this, result.Value, remainder[tokenIndex].StartIndex + result.Index, color)
+                    };
 
-            // else partial match, continue to next token
-            if (!TryConsume(token.Substring(result.Length), color, tokenIndex + 1, true, out before, out after, out consumedTokens, out remaining))
-            { //partial match did not complete
-                if (inMatch) //backtrack
-                {
-                    before = null;
-                    after = null;
-                    consumedTokens = new List<Token>();
                     remaining = remainder.ToList();
-                    return false; 
+                    var index = remaining.IndexOf(remainder[tokenIndex]);
+                    remaining.Remove(remainder[tokenIndex]);
+                    if (before.HasValue) remaining.Insert(index, before.Value);
+                    if (after.HasValue) remaining.Insert(index, after.Value);
+                    Console.WriteLine($"Returning true (before:{before}, after:{after},\nconsumedTokens:{consumedTokens.ToArrayString()}, remaining: {remaining.ToArrayString()}");
+                    return true;
                 }
 
-                //else try to start new match from next component
-                return TryConsume(token, color, tokenIndex + 1, false, out before, out after, out consumedTokens, out remaining);
+                // else partial match only
+                Console.WriteLine("Partial match only");
+                if (result.Index + result.Length != remainder[tokenIndex].Length) //does not run up to end
+                {
+                    Console.WriteLine("Does not run to end of token");
+                    if (inSpan) // partial match ends without continuing to next token. Return span failure
+                    {
+                        Console.WriteLine("Partial match ends without continuing to next token");
+                        consumedTokens = new List<Token>();
+                        remaining = remainder.ToList();
+                        Console.WriteLine($"Returning false (before:{before}, after:{after},\nconsumedTokens:{consumedTokens.ToArrayString()}, remaining: {remaining.ToArrayString()}");
+                        return false;
+                    } else // partial match ends, but since not in span, we can continue to next potential match
+                    {
+                        Console.WriteLine("Partial match ends outside of span. Continue to next potential match");
+                        continue;
+                    }
+                }
+
+                //else runs up to end, recurse to next token, starting span
+                Console.WriteLine("Runs up to end of token, starting span");
+                var spanSuccess = TryConsume(token.Substring(result.Length), color, tokenIndex + 1, true, out consumedTokens, out remaining);
+                if (spanSuccess)
+                {
+                    Console.WriteLine("Span successful");
+                    consumedTokens.Add(new Token(this, result.Value, remainder[tokenIndex].StartIndex + result.Index, color));
+                    var index = remaining.IndexOf(remainder[tokenIndex]);
+                    remaining.Remove(remainder[tokenIndex]);
+                    if(before.HasValue) remaining.Insert(index, before.Value);
+                    Console.WriteLine($"Returning true (before:{before}, after:{after},\nconsumedTokens:{consumedTokens.ToArrayString()}, remaining: {remaining.ToArrayString()}");
+                    return true;
+                }
+
+                //else span unsuccessful, continue to next potential match
+                Console.WriteLine("Span unsuccessful. Continuing to next potential match");
+                continue;
             }
 
-            //partial match completed, add this partial segment and remove from remaining
-            consumedTokens.Add(new Token(this, result.Value, remainder[tokenIndex].StartIndex, result.Length, color));
-            remaining.Remove(remainder[tokenIndex]);
-
-            return true;
+            //potential matches exhausted, recursing on next token
+            Console.WriteLine("Exhausted potential matches in token. Recursing on next token");
+            return TryConsume(token, color, tokenIndex + 1, false, out consumedTokens, out remaining);
         }
 
         private Regex compile(string token)
@@ -304,13 +341,13 @@ namespace IC10_Extender.Highlighters
             {
                 pattern = $"({c}{pattern})?";
             }
-            return new Regex(pattern, RegexOptions.ExplicitCapture);
+            return new Regex(pattern.Substring(0, pattern.Length-1), RegexOptions.ExplicitCapture);
         }
 
         private string Concat(List<Token> tokens)
         {
             var result = "";
-            tokens.ForEach(x => result += x);
+            tokens.ForEach(x => result += x.Text);
             return result;
         }
 
@@ -327,7 +364,17 @@ namespace IC10_Extender.Highlighters
 
         public string ToVanillaString()
         {
-            return null; //TODO format the string with <color=value>text</color> format
+            var allTokens = Tokens.Concat(remainder).ToList();
+            allTokens.Sort((a, b) => a.StartIndex.CompareTo(b.StartIndex));
+
+            var result = "";
+
+            foreach (var token in allTokens)
+            {
+                result += token.ToVanillaString();
+            }
+
+            return result;
         }
     }
 
@@ -336,16 +383,25 @@ namespace IC10_Extender.Highlighters
         public readonly StyledLine Parent;
         public readonly string Text;
         public readonly int StartIndex;
-        public readonly int Length;
+        public int Length => Text.Length;
         public readonly string Color;
 
-        public Token(StyledLine parent, string text, int startIndex, int length, string color)
+        public Token(StyledLine parent, string text, int startIndex, string color)
         {
             Parent = parent;
             Text = text;
             StartIndex = startIndex;
-            Length = length;
             Color = color;
+        }
+
+        public override string ToString()
+        {
+            return $"Token(Parent:{Parent}, Text:\"{Text}\", StartIndex:{StartIndex}, Length:{Length}, Color:{Color})";
+        }
+
+        public string ToVanillaString()
+        {
+            return Color == null ? Text : $"<color={Color}>{Text}</color>";
         }
     }
 }

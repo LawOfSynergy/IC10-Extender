@@ -12,7 +12,7 @@ namespace IC10_Extender.Preprocessors
     {
         public override string SimpleName => "hash_preprocessor";
 
-        public override string HelpEntryName => $"<color={Colors.MACRO}>HASH(</color><color={Colors.STRING}>\"...\"</color><color={Colors.MACRO}>)</color>";
+        public override string HelpEntryName => $"<color={Theme.Vanilla.Macro}>HASH(</color><color={Theme.Vanilla.String}>\"...\"</color><color={Theme.Vanilla.Macro}>)</color>";
 
         public override string HelpEntryDescription => "any text inside will be hashed to an integer before processing takes place. Use this to generate integer values for use wherever hashes are required.";
         
@@ -25,7 +25,7 @@ namespace IC10_Extender.Preprocessors
 
         public override SyntaxHighlighter Highlighter()
         {
-            return new RegexGroupHighlighter(Regex, Colors.MACRO, Colors.STRING);
+            return new RegexGroupHighlighter(Regex, Theme.Vanilla.Macro, Theme.Vanilla.String);
         }
 
         public class Instance : PreprocessorOperation

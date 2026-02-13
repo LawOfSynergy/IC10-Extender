@@ -1,4 +1,5 @@
 ﻿using Assets.Scripts.UI;
+using IC10_Extender.Highlighters;
 using System;
 using System.Linq;
 using UnityEngine;
@@ -54,7 +55,7 @@ namespace IC10_Extender.Operations
         /// <returns>A keyword (default "yellow") or a hex code of the format #RRGGBBAA (TODO fact-check?)</returns>
         public virtual string Color()
         {
-            return Colors.COMMAND;
+            return Theme.Vanilla.OpCode;
         }
 
         /// <summary>

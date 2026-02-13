@@ -1,4 +1,5 @@
 ﻿using Assets.Scripts.Objects.Electrical;
+using IC10_Extender.Highlighters;
 using System;
 using System.Linq;
 
@@ -22,7 +23,7 @@ namespace IC10_Extender
 
         public override string ToString()
         {
-            return $"Error <color={Colors.ERROR}>{GetType().Name} at line {LineNumber}: {Message}</color>";
+            return $"Error <color={Theme.Vanilla.Error}>{GetType().Name} at line {LineNumber}: {Message}</color>";
         }
     }
 }

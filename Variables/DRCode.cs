@@ -4,7 +4,7 @@ namespace IC10_Extender.Variables
 {
     public readonly struct DRCode
     {
-        public const string REGEX = @"^(?:(?<device>d)(?<self>b)(?::(?<network>[0-9]+))?|(?<device>d)(?<register>r*)(?<index>[0-9]+)(?::(?<network>[0-9]+))?|(?<register>r*)(?<index>[0-9]+))$";
+        public static readonly Regex Pattern = new Regex(@"^(?:(?<device>d)(?<self>b)(?::(?<network>[0-9]+))?|(?<device>d)(?<register>r*)(?<index>[0-9]+)(?::(?<network>[0-9]+))?|(?<register>r*)(?<index>[0-9]+))$", RegexOptions.Compiled);
 
         public readonly string code;
         public readonly bool success;
@@ -21,7 +21,7 @@ namespace IC10_Extender.Variables
         {
             this.code = code;
 
-            var results = Regex.Match(code, REGEX);
+            var results = Pattern.Match(code);
             success = results.Success;
             if (success)
             {

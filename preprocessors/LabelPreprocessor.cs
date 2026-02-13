@@ -1,5 +1,6 @@
 ﻿using Assets.Scripts.Objects.Electrical;
 using IC10_Extender.Compat;
+using IC10_Extender.Highlighters;
 using IC10_Extender.Operations;
 using Objects.Rockets.Scanning;
 using System;
@@ -14,7 +15,7 @@ namespace IC10_Extender.Preprocessors
     public class LabelPreprocessor: Preprocessor
     {
         public override string SimpleName => "label_preprocessor";
-        public override string HelpEntryName => $"<color={Colors.JUMP}>NAME:</color>";
+        public override string HelpEntryName => $"<color={Theme.Vanilla.Jump}>NAME:</color>";
         public override string HelpEntryDescription => "creates a jump label at the named line. These can used in place of line numbers, like in j- and b- commands.";
 
         public const string Pattern = @"^(?<label>[^:\s]*):(?:\s+(?<remainder>.*))?";

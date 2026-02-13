@@ -6,6 +6,7 @@ using BepInEx.Logging;
 using HarmonyLib;
 using HarmonyLib.Tools;
 using IC10_Extender.Compat;
+using IC10_Extender.Highlighters;
 using IC10_Extender.Operations;
 using System;
 using System.Collections.Generic;
@@ -113,7 +114,6 @@ namespace IC10_Extender
 
             DefaultPreprocessors.Register();
             IC10Extender.Register(new ThrowOperation());
-            Colors.Register();
         }
     }
 }

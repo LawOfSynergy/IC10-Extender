@@ -6,7 +6,7 @@ namespace IC10_Extender.Preprocessors
     {
         public override string SimpleName => "comment_preprocessor";
 
-        public override string HelpEntryName => $"<color={Colors.COMMENT}>#</color>";
+        public override string HelpEntryName => $"<color={Theme.Vanilla.Comment}>#</color>";
 
         public override string HelpEntryDescription => "any following characters on this line are ignored";
 
@@ -34,10 +34,14 @@ namespace IC10_Extender.Preprocessors
 
         private class CommentHighlighter : SyntaxHighlighter
         {
-            public override string HighlightLine(string line)
+            public override void HighlightLine(StyledLine line)
             {
-                if (string.IsNullOrEmpty(line)) return line;
-                return line.Contains("#") ? $"{line.Substring(0, line.IndexOf("#"))}<color={Colors.COMMENT}>{line.Substring(line.IndexOf("#"))}</color>" : line;
+                var text = line.Remainder();
+                if (string.IsNullOrEmpty(text)) return;
+                if (text.Contains("#"))
+                {
+                    line.Consume(text.Substring(text.IndexOf("#")), line.Theme.Comment);
+                }
             }
         }
     }

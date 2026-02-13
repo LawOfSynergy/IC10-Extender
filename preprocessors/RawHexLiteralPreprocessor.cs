@@ -11,7 +11,7 @@ namespace IC10_Extender.Preprocessors
     {
         public override string SimpleName => "raw_hex_literal_preprocessor";
 
-        public override string HelpEntryName => $"<color={Colors.NUMBER}>$$</color>";
+        public override string HelpEntryName => $"<color={Theme.Vanilla.Number}>$$</color>";
 
         public override string HelpEntryDescription => "any valid hex characters after this will be parsed together as a hex value. You can use underscores to help with readability, but they have no functional use. As an example, $F will parse as 15. The original text is not maintained when compiled, and will be replaced with the raw computed value.";
 
@@ -24,7 +24,7 @@ namespace IC10_Extender.Preprocessors
 
         public override SyntaxHighlighter Highlighter()
         {
-            return new RegexHighlighter(Regex, Colors.NUMBER);
+            return new RegexHighlighter(Regex, Theme.Vanilla.Number);
         }
 
         public class Instance : PreprocessorOperation

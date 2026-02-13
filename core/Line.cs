@@ -1,4 +1,6 @@
-﻿using IC10_Extender.Operations;
+﻿using IC10_Extender.Highlighters;
+using IC10_Extender.Operations;
+using System.Collections.Generic;
 
 namespace IC10_Extender
 {
@@ -10,6 +12,11 @@ namespace IC10_Extender
          * replaced with the contents of Display as it was saved in the previous compilation, and preprocessing will start over from there.
          */
         public string Raw;
+
+        /**
+         * The string as it originally appeared in the source code before any preprocessing took place. This is used for highlighting.
+         */
+        public readonly string Original;
 
         /**
          * The string as it should be stored in the chip and displayed in the UI. The text in this field is what will be used any time the chip's code is reloaded or recompiled.
@@ -43,6 +50,7 @@ namespace IC10_Extender
 
         public Line(string raw, ushort originatingLineNumber, Operation forcedOp = null)
         {
+            Original = raw;
             Raw = raw;
             Display = raw;
             OriginatingLineNumber = originatingLineNumber;

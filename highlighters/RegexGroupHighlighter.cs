@@ -4,35 +4,33 @@ namespace IC10_Extender.Highlighters
 {
     public class RegexGroupHighlighter : RegexHighlighter
     {
-        protected readonly string[] colors;
+        protected readonly string[] innerColorKeys;
 
-        public RegexGroupHighlighter(Regex regex, string color, params string[] innerColors) : base(regex, color)
+        public RegexGroupHighlighter(Regex regex, string colorKey, params string[] innerColorKeys) : base(regex, colorKey)
         {
-            colors = innerColors;
+            this.innerColorKeys = innerColorKeys;
         }
 
-        public override string HighlightLine(string line)
+        public override void HighlightLine(StyledLine line)
         {
-            
-            return regex.Replace(line, match =>
+            var result = regex.Match(line.Remainder());
+
+            while (result.Success)
             {
-                GroupCollection groups = match.Groups;
+                var groups = result.Groups;
                 string matchResult = groups[0].Value;
                 string nonGrouped = matchResult;
+
                 for (int i = 1; i < groups.Count; i++)
                 {
                     foreach (Capture capture in groups[i].Captures)
                     {
-                        nonGrouped = nonGrouped.Replace(capture.Value, "\0");
-                        matchResult = matchResult.Replace(capture.Value, $"<color={colors[i - 1]}>{capture.Value}</color>");
+                        line.Consume(capture.Value, innerColorKeys[i - 1]);
+                        nonGrouped = nonGrouped.Replace(capture.Value, "");
                     }
                 }
-                foreach (string token in nonGrouped.Split('\0', System.StringSplitOptions.RemoveEmptyEntries))
-                {
-                    matchResult = matchResult.Replace(token, $"<color={color}>{token}</color>");
-                }
-                return matchResult;
-            });
+                line.Consume(nonGrouped, colorKey);
+            }
         }
     }
 }

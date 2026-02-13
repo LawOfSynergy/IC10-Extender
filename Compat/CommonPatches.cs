@@ -4,6 +4,7 @@ using Assets.Scripts.Objects.Motherboards;
 using Assets.Scripts.UI;
 using Assets.Scripts.Util;
 using HarmonyLib;
+using IC10_Extender.Highlighters;
 using IC10_Extender.Operations;
 using IC10_Extender.Wrappers;
 using Mono.Cecil.Cil;
@@ -35,7 +36,7 @@ namespace IC10_Extender.Compat
 
                 var op = line.ForcedOp;
 
-                //if line was given a forced operation during preprocessing, use that operation
+                //if loc was given a forced operation during preprocessing, use that operation
                 if (op != null)
                 {
                     opRef.SetValue(__instance, new IC10AsLegacyOpWrapper(op));
@@ -43,7 +44,7 @@ namespace IC10_Extender.Compat
                 }
 
                 var tokens = line.Raw.Split().Where(token => !string.IsNullOrEmpty(token)).ToArray();
-                //if line is empty, operation is noop
+                //if loc is empty, operation is noop
                 if (tokens.Length == 0)
                 {
                     opRef.SetValue(__instance, new IC10AsLegacyOpWrapper(new NoOpOperation(chip.Wrap(), line)));
@@ -267,11 +268,17 @@ namespace IC10_Extender.Compat
             .Emit(OpCodes.Call, typeof(CommonPatches).GetMethod(nameof(ApplyHighlight), Extensions.AllDeclared));
         }
 
-        private static void ApplyHighlight(ref string masterString, ref List<string> acceptedStrings, ref List<string> acceptedJumps, EditorLineOfCode line = null)
+        private static void ApplyHighlight(ref string masterString, ref List<string> acceptedStrings, ref List<string> acceptedJumps, EditorLineOfCode loc = null)
         {
+            List<StyledLine> lines = masterString.Split('\n').Select(line => new StyledLine(Theme.Vanilla, line)).ToList();
+
             foreach (var preprocessor in IC10Extender.Preprocessors)
             {
-                masterString = preprocessor.Highlighter().Highlight(masterString);
+                var highlighter = preprocessor.Highlighter();
+                foreach (var line in lines)
+                {
+                    highlighter.HighlightLine(line);
+                }
             }
             
             string format = "<color={1}>{0}</color>";
@@ -296,7 +303,7 @@ namespace IC10_Extender.Compat
 
                         int spaceCount = copy.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length - 1;
                         string fragment = masterString.Substring(len, masterString.Length - len);
-                        masterString = $"{prefix}{string.Format(format, name, opcode.Color())}{fragment.TrimEnd()} {opcode.CommandExample(spaceCount, Colors.EXAMPLE)}";
+                        masterString = $"{prefix}{string.Format(format, name, opcode.Color())}{fragment.TrimEnd()} {opcode.CommandExample(spaceCount, Theme.Vanilla.Example)}";
                         return;
                     }
                 }
@@ -422,8 +429,8 @@ namespace IC10_Extender.Compat
                 if (opcode != null && !opcode.Deprecated)
                 {
 
-                    var str = new StringBuilder($"<color={Colors.STRING}><b>Instruction</b></color>\n<i>{opcode.CommandExample()}</i>\n");
-                    StringManager.WrapLineLength(str, opcode.Description(), 70, Colors.DESCRIPTION);
+                    var str = new StringBuilder($"<color={Theme.Vanilla.String}><b>Instruction</b></color>\n<i>{opcode.CommandExample()}</i>\n");
+                    StringManager.WrapLineLength(str, opcode.Description(), 70, Theme.Vanilla.Description);
                     UITooltipManager.SetTooltip(str);
                     return false;
                 }

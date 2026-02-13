@@ -10,7 +10,7 @@ namespace IC10_Extender.Preprocessors
     public class StringPreprocessor : Preprocessor
     {
         public override string SimpleName => "string_preprocessor";
-        public override string HelpEntryName => $"<color={Colors.MACRO}>STR(</color><color={Colors.STRING}>\"...\"</color><color={Colors.MACRO}>)</color>";
+        public override string HelpEntryName => $"<color={Theme.Vanilla.Macro} >STR(</color><color= {Theme.Vanilla.String} >\"...\"</color><color= {Theme.Vanilla.Macro}>)</color>";
         public override string HelpEntryDescription => "any text inside will be packed to a double before processing takes place. Use this to pass a string literal, such as for use in text displays.";
 
         public static readonly Regex Regex = new Regex("(?<=$|\\s)STR\\(\"([^\"]+)\"\\)");
@@ -22,7 +22,7 @@ namespace IC10_Extender.Preprocessors
 
         public override SyntaxHighlighter Highlighter()
         {
-            return new RegexGroupHighlighter(Regex, Colors.MACRO, Colors.STRING);
+            return new RegexGroupHighlighter(Regex, Theme.Vanilla.Macro, Theme.Vanilla.String);
         }
 
         public class Instance : PreprocessorOperation

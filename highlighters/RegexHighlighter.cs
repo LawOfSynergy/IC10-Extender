@@ -5,20 +5,23 @@ namespace IC10_Extender.Highlighters
     public class RegexHighlighter : SyntaxHighlighter
     {
         protected readonly Regex regex;
-        protected readonly string color;
+        protected readonly string colorKey;
 
-        public RegexHighlighter(Regex regex, string color)
+        public RegexHighlighter(Regex regex, string colorKey)
         {
             this.regex = regex;
-            this.color = color;
+            this.colorKey = colorKey;
         }
 
-        public override string HighlightLine(string line)
+        public override void HighlightLine(StyledLine line)
         {
-            return regex.Replace(line, match =>
+            var result = regex.Match(line.Remainder());
+
+            while(result.Success)
             {
-                return $"<color={color}>{match.Value}</color>";
-            });
+                line.Consume(result.Value, line.Theme[colorKey]);
+                result = regex.Match(line.Remainder());
+            }
         }
     }
 }

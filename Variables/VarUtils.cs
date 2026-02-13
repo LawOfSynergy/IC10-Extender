@@ -588,7 +588,7 @@ namespace IC10_Extender.Variables
         {
             return (ctx) => {
                 var getters = sources
-                    .Select(source =>
+                    .Select(source => //select all sources that don't throw compile errors
                     {
                         try { return source(ctx); } catch { return null; }
                     })

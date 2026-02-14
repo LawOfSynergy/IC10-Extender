@@ -10,75 +10,95 @@ using System.Threading.Tasks;
 
 namespace IC10_Extender.Highlighters
 {
-    public class Theme : IDictionary<string, string>
+    public readonly struct Style
+    {
+        public readonly string ForegroundColor;
+        public readonly string BackgroundColor; //null means use default background
+        public readonly bool Italic;
+        public readonly bool Bold;
+        public readonly bool Underline;
+        public readonly bool StrikeThrough;
+
+        public Style(string foreground, string background = null, bool italic = false, bool bold = false, bool underline = false, bool strikeThrough = false)
+        {
+            ForegroundColor = foreground;
+            BackgroundColor = background;
+            Italic = italic;
+            Bold = bold;
+            Underline = underline;
+            StrikeThrough = strikeThrough;
+        }
+    }
+
+    public class Theme : IDictionary<string, Style>
     {
         public static readonly Theme Vanilla = new Theme
         (
-            "#A0A0A0",
-            "#0080FFFF",
-            "#20B2AA",
-            "#00FFEC",
-            "#585858FF",
-            "#808080",
-            "white",
-            "yellow",
-            "orange",
-            "orange",
-            "green",
-            "purple",
-            "red",
-            "grey",
-            "darkgrey"
+            new Style("#A0A0A0"),
+            new Style("#0080FFFF"),
+            new Style("#20B2AA"),
+            new Style("#00FFEC"),
+            new Style("#585858FF"),
+            new Style("#808080"),
+            new Style("white"),
+            new Style("yellow"),
+            new Style("orange"),
+            new Style("orange"),
+            new Style("green"),
+            new Style("purple"),
+            new Style("red"),
+            new Style("grey"),
+            new Style("darkgrey")
         );
 
-        private Dictionary<string, string> colors = new Dictionary<string, string>();
+        private Dictionary<string, Style> colors = new Dictionary<string, Style>();
 
-        public string Macro => this[nameof(Macro)];
-        public string Register => this[nameof(Register)];
-        public string Number => this[nameof(Number)];
-        public string Network => this[nameof(Network)];
-        public string Comment => this[nameof(Comment)];
-        public string Help => this[nameof(Help)];
-        public string String => this[nameof(String)];
-        public string OpCode => this[nameof(OpCode)];
-        public string LogicType => this[nameof(LogicType)];
-        public string LogicSlotType => this[nameof(LogicSlotType)];
-        public string Device => this[nameof(Device)];
-        public string Jump => this[nameof(Jump)];
-        public string Error => this[nameof(Error)];
-        public string Description => this[nameof(Description)];
-        public string Example => this[nameof(Example)];
+        public Style Macro => this[nameof(Macro)];
+        public Style Register => this[nameof(Register)];
+        public Style Number => this[nameof(Number)];
+        public Style Network => this[nameof(Network)];
+        public Style Comment => this[nameof(Comment)];
+        public Style Help => this[nameof(Help)];
+        public Style String => this[nameof(String)];
+        public Style OpCode => this[nameof(OpCode)];
+        public Style LogicType => this[nameof(LogicType)];
+        public Style LogicSlotType => this[nameof(LogicSlotType)];
+        public Style Device => this[nameof(Device)];
+        public Style Jump => this[nameof(Jump)];
+        public Style Error => this[nameof(Error)];
+        public Style Description => this[nameof(Description)];
+        public Style Example => this[nameof(Example)];
 
-        public ICollection<string> Keys => ((IDictionary<string, string>)colors).Keys;
+        public ICollection<string> Keys => colors.Keys;
 
-        public ICollection<string> Values => ((IDictionary<string, string>)colors).Values;
+        public ICollection<Style> Values => colors.Values;
 
-        public int Count => ((ICollection<KeyValuePair<string, string>>)colors).Count;
+        public int Count => colors.Count;
 
         public bool IsReadOnly => false;
 
-        public string this[string key] { 
+        public Style this[string key] { 
             get => colors[key];
             set => Add(key, value);
         }
 
         public Theme(
-            string macro,
-            string register,
-            string number,
-            string network,
-            string comment,
-            string help,
-            string str,
-            string opCode,
-            string logicType,
-            string logicSlotType,
-            string device,
-            string jump,
-            string error,
-            string description,
-            string example,
-            Dictionary<string, string> additional = null
+            Style macro,
+            Style register,
+            Style number,
+            Style network,
+            Style comment,
+            Style help,
+            Style str,
+            Style opCode,
+            Style logicType,
+            Style logicSlotType,
+            Style device,
+            Style jump,
+            Style error,
+            Style description,
+            Style example,
+            Dictionary<string, Style> additional = null
         )
         {
             Add(nameof(Macro), macro);
@@ -105,18 +125,18 @@ namespace IC10_Extender.Highlighters
             return colors.ContainsKey(key);
         }
 
-        public void Add(string key, string value)
+        public void Add(string key, Style value)
         {
             if (ContainsKey(key)) throw new ArgumentException($"{key} already exists in this theme"); //avoid accidental overriding
             colors.Add(key, value);
         }
 
-        public void Add(KeyValuePair<string, string> item)
+        public void Add(KeyValuePair<string, Style> item)
         {
             Add(item.Key, item.Value);
         }
 
-        public void AddAll(Dictionary<string, string> additional)
+        public void AddAll(Dictionary<string, Style> additional)
         {
             foreach (var kvp in additional)
             {
@@ -124,17 +144,17 @@ namespace IC10_Extender.Highlighters
             }
         }
 
-        public void Override(string key, string value)
+        public void Override(string key, Style value)
         {
             colors.Add(key, value);
         }
 
-        public void Override(KeyValuePair<string, string> item)
+        public void Override(KeyValuePair<string, Style> item)
         {
             Override(item.Key, item.Value);
         }
 
-        public void OverrideAll(Dictionary<string, string> additional)
+        public void OverrideAll(Dictionary<string, Style> additional)
         {
             foreach (var kvp in additional)
             {
@@ -147,7 +167,7 @@ namespace IC10_Extender.Highlighters
             throw new InvalidOperationException("Entires cannot be removed from a theme");
         }
 
-        public bool TryGetValue(string key, out string value)
+        public bool TryGetValue(string key, out Style value)
         {
             return colors.TryGetValue(key, out value);
         }
@@ -157,22 +177,22 @@ namespace IC10_Extender.Highlighters
             throw new InvalidOperationException("Themes cannot be cleared");
         }
 
-        public bool Contains(KeyValuePair<string, string> item)
+        public bool Contains(KeyValuePair<string, Style> item)
         {
             return colors.Contains(item);
         }
 
-        public void CopyTo(KeyValuePair<string, string>[] array, int arrayIndex)
+        public void CopyTo(KeyValuePair<string, Style>[] array, int arrayIndex)
         {
-            ((ICollection<KeyValuePair<string, string>>)colors).CopyTo(array, arrayIndex);
+            ((ICollection<KeyValuePair<string, Style>>)colors).CopyTo(array, arrayIndex);
         }
 
-        public bool Remove(KeyValuePair<string, string> item)
+        public bool Remove(KeyValuePair<string, Style> item)
         {
-            return ((ICollection<KeyValuePair<string, string>>)colors).Remove(item);
+            return ((ICollection<KeyValuePair<string, Style>>)colors).Remove(item);
         }
 
-        public IEnumerator<KeyValuePair<string, string>> GetEnumerator()
+        public IEnumerator<KeyValuePair<string, Style>> GetEnumerator()
         {
             return colors.GetEnumerator();
         }

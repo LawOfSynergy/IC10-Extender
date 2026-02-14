@@ -31,7 +31,7 @@ namespace IC10_Extender.Operations
         /// <param name="lineNumber"></param>
         /// <param name="source"></param>
         /// <returns></returns>
-        public abstract Operation Create(ChipWrapper chip, int lineNumber, string[] source);
+        public abstract Operation Create(ChipWrapper chip, int lineNumber, StyledLine line, string[] source);
 
         /// <summary>
         /// The help string for each parameter of this command in the order they appear (excluding the opcode itself).

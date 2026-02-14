@@ -22,9 +22,9 @@ namespace IC10_Extender.Operations
             if (source.Length > 2) throw new ProgrammableChipException(ICExceptionType.IncorrectArgumentCount, lineNumber);
         }
 
-        public override Operation Create(ChipWrapper chip, int lineNumber, string[] source)
+        public override Operation Create(ChipWrapper chip, int lineNumber, StyledLine line, string[] source)
         {
-            return new Instance(chip, lineNumber, source);
+            return new Instance(chip, lineNumber, line, source);
         }
 
         public override HelpString[] Params()
@@ -41,11 +41,11 @@ namespace IC10_Extender.Operations
         {
             protected readonly Getter<int> ErrorCodeGetter;
 
-            public Instance(ChipWrapper chip, int lineNumber, string[] source) : base(chip, lineNumber)
+            public Instance(ChipWrapper chip, int lineNumber, StyledLine line, string[] source) : base(chip, lineNumber)
             {
                 if (source.Length == 2)
                 {
-                    ErrorCodeGetter = ErrorCode.Bind(chip, lineNumber, source[1]);
+                    ErrorCodeGetter = ErrorCode.Bind(chip, lineNumber, line, source[1]);
                 }
             }
 

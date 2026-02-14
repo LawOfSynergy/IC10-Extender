@@ -1,6 +1,7 @@
 ﻿using Assets.Scripts.Objects.Electrical;
 using Assets.Scripts.Objects.Pipes;
 using Assets.Scripts.Util;
+using IC10_Extender.Highlighters;
 using IC10_Extender.Wrappers;
 using System;
 using System.Collections.Generic;
@@ -37,7 +38,7 @@ namespace IC10_Extender.Variables
                     {
                         if (throwOnError)
                         {
-                            throw new ExtendedPCException(ctx.lineNumber, $"Could not find register.");
+                            throw new ExtendedPCException(ctx.LineNumber, $"Could not find register.");
                         }
                         result = default;
                         return false;
@@ -46,12 +47,12 @@ namespace IC10_Extender.Variables
                     {
                         if (throwOnError)
                         {
-                            throw new ExtendedPCException(ctx.lineNumber, $"Alias does not point to a register.");
+                            throw new ExtendedPCException(ctx.LineNumber, $"Alias does not point to a register.");
                         }
                         result = default;
                         return false;
                     }
-                    result = ctx.chip.Registers[aliasValue.Value.Index];
+                    result = ctx.Chip.Registers[aliasValue.Value.Index];
                     return true;
                 };
                 return getter;
@@ -67,12 +68,12 @@ namespace IC10_Extender.Variables
             {
                 if (recurseCount < 0)
                 {
-                    throw new ExtendedPCException(ctx.lineNumber, $"recurseCount: expected >= 0, actual {recurseCount}");
+                    throw new ExtendedPCException(ctx.LineNumber, $"recurseCount: expected >= 0, actual {recurseCount}");
                 }
 
-                if (startIndex < 0 || startIndex >= ctx.chip.Registers.Length)
+                if (startIndex < 0 || startIndex >= ctx.Chip.Registers.Length)
                 {
-                    throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.OutOfRegisterBounds, ctx.lineNumber);
+                    throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.OutOfRegisterBounds, ctx.LineNumber);
                 }
 
                 Getter<AliasValue?> getter = (out AliasValue? result, bool throwOnError) =>
@@ -81,14 +82,14 @@ namespace IC10_Extender.Variables
                     int index = startIndex;
                     for (int i = 0; i < recurseCount; i++)
                     {
-                        resultValue = (int)ctx.chip.Registers[index];
+                        resultValue = (int)ctx.Chip.Registers[index];
                         index = resultValue;
 
-                        if (index < 0 || index >= ctx.chip.Registers.Length)
+                        if (index < 0 || index >= ctx.Chip.Registers.Length)
                         {
                             if (throwOnError)
                             {
-                                throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.OutOfRegisterBounds, ctx.lineNumber);
+                                throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.OutOfRegisterBounds, ctx.LineNumber);
                             }
 
                             result = null;
@@ -120,21 +121,21 @@ namespace IC10_Extender.Variables
                 aliases = aliases ?? new Dictionary<string, AliasValue>();
 
                 // Try to check aliases first
-                if (aliases != null && aliases.TryGetValue(ctx.token, out var alias) && (alias.Target & AliasTarget.Register) != 0)
+                if (aliases != null && aliases.TryGetValue(ctx.Token, out var alias) && (alias.Target & AliasTarget.Register) != 0)
                 {
                     return Register(alias.Index)(ctx);
                 }
 
                 // otherwise, parse DR code
-                var drCode = new DRCode(ctx.token);
+                var drCode = new DRCode(ctx.Token);
 
                 if (!drCode.success)
                 {
-                    throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.IncorrectVariable, ctx.lineNumber);
+                    throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.IncorrectVariable, ctx.LineNumber);
                 }
                 if (!allowDeviceComponent && drCode.isDevice)
                 {
-                    throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.IncorrectVariable, ctx.lineNumber);
+                    throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.IncorrectVariable, ctx.LineNumber);
                 }
 
                 int startIndex = drCode.index;
@@ -142,7 +143,7 @@ namespace IC10_Extender.Variables
 
                 if(recurseCount < 0)
                 {
-                    throw new ExtendedPCException(ctx.lineNumber, $"Cannot accept a negative recurse count. Did you forget to set 'impliedR:true'?");
+                    throw new ExtendedPCException(ctx.LineNumber, $"Cannot accept a negative recurse count. Did you forget to set 'impliedR:true'?");
                 }
 
                 return Register(startIndex, recurseCount)(ctx);
@@ -409,13 +410,13 @@ namespace IC10_Extender.Variables
             return (ctx) => {
                 Getter<ILogicable> getter = (out ILogicable result, bool throwOnError) =>
                 {
-                    result = ctx.chip.CircuitHousing.GetLogicableFromId(id, network);
+                    result = ctx.Chip.CircuitHousing.GetLogicableFromId(id, network);
 
                     if(!allowNull && result == null)
                     {
                         if (throwOnError)
                         {
-                            throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.DeviceNotFound, ctx.lineNumber);
+                            throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.DeviceNotFound, ctx.LineNumber);
                         }
                         return false;
                     }
@@ -431,13 +432,13 @@ namespace IC10_Extender.Variables
             return (ctx) => {
                 Getter<ILogicable> getter = (out ILogicable result, bool throwOnError) =>
                 {
-                    result = ctx.chip.CircuitHousing.GetLogicableFromIndex(index, network);
+                    result = ctx.Chip.CircuitHousing.GetLogicableFromIndex(index, network);
 
                     if (!allowNull && result == null)
                     {
                         if (throwOnError)
                         {
-                            throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.DeviceNotFound, ctx.lineNumber);
+                            throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.DeviceNotFound, ctx.LineNumber);
                         }
                         return false;
                     }
@@ -453,7 +454,7 @@ namespace IC10_Extender.Variables
             return (ctx) => {
                 
                 // Try to check aliases first
-                if (aliasSource(ctx)(out var aliases, true) && aliases.TryGetValue(ctx.token, out var alias))
+                if (aliasSource(ctx)(out var aliases, true) && aliases.TryGetValue(ctx.Token, out var alias))
                 {
                     if (alias.Target.HasFlag(AliasTarget.Device))
                     {
@@ -466,7 +467,7 @@ namespace IC10_Extender.Variables
                 }
 
                 // otherwise, parse DR code
-                var drCode = new DRCode(ctx.token);
+                var drCode = new DRCode(ctx.Token);
                 var deviceIdSource = drCode.HasRegisterLookups ? Register(allowDeviceComponent:true).Resolve()(ctx) : Constant<double>(drCode.index)(ctx);
 
                 Getter<ILogicable> getter = (out ILogicable result, bool throwOnError) =>
@@ -475,30 +476,30 @@ namespace IC10_Extender.Variables
                     {
                         if (throwOnError)
                         {
-                            throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.DeviceNotFound, ctx.lineNumber);
+                            throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.DeviceNotFound, ctx.LineNumber);
                         }
                         result = null;
                         return false;
                     }
 
-                    var token = ctx.token;
+                    var token = ctx.Token;
                     if (
                         token.Length > 0 && (char.IsDigit(token[0]) || token[0] == '$' || token[0] == '%') // number literal, though only char.IsDigit should be possible due to preprocessing
                         || token.Length > 1 && token[0] == 'r' && char.IsDigit(token[1]) // register reference
                     ) {
-                        result = ctx.chip.CircuitHousing.GetLogicableFromId((int)deviceId);
+                        result = ctx.Chip.CircuitHousing.GetLogicableFromId((int)deviceId);
                     }
                     else
                     { // device index with optional network index
                         var networkIndex = drCode.network;
-                        result = ctx.chip.CircuitHousing.GetLogicableFromIndex((int)deviceId, networkIndex);
+                        result = ctx.Chip.CircuitHousing.GetLogicableFromIndex((int)deviceId, networkIndex);
                     }
 
                     if (!allowNull && result == null)
                     {
                         if (throwOnError)
                         {
-                            throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.DeviceNotFound, ctx.lineNumber);
+                            throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.DeviceNotFound, ctx.LineNumber);
                         }
                         return false;
                     }
@@ -524,7 +525,7 @@ namespace IC10_Extender.Variables
                     if (!(logicable is IMemoryWritable memWritable))
                     {
                         writeable = null;
-                        if (throwOnError) throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.MemoryNotWriteable, ctx.lineNumber);
+                        if (throwOnError) throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.MemoryNotWriteable, ctx.LineNumber);
                         return false;
                     }
                     writeable = memWritable;
@@ -548,7 +549,7 @@ namespace IC10_Extender.Variables
                     if (!(logicable is IMemoryReadable memReadable))
                     {
                         readable = null;
-                        if (throwOnError) throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.MemoryNotReadable, ctx.lineNumber);
+                        if (throwOnError) throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.MemoryNotReadable, ctx.LineNumber);
                         return false;
                     }
                     readable = memReadable;
@@ -572,7 +573,7 @@ namespace IC10_Extender.Variables
 
                     try
                     {
-                        result = new MemoryReadWritableWrapper(logicable, ctx.lineNumber);
+                        result = new MemoryReadWritableWrapper(logicable, ctx.LineNumber);
                         return true;
                     } catch (Exception ex)
                     {
@@ -595,7 +596,7 @@ namespace IC10_Extender.Variables
                     .Where(source => source != null)
                     .ToList();
 
-                if (getters.Count < 1) throw compileError ?? new ExtendedPCException(ctx.lineNumber, $"No valid interpretation for {ctx.token}");
+                if (getters.Count < 1) throw compileError ?? new ExtendedPCException(ctx.LineNumber, $"No valid interpretation for {ctx.Token}");
 
                 Getter<T> getter = (out T result, bool throwOnError) =>
                 {
@@ -608,7 +609,7 @@ namespace IC10_Extender.Variables
                     }
                     if (throwOnError)
                     {
-                        throw runtimeError ?? new ExtendedPCException(ctx.lineNumber, $"No interperetation for {ctx.token} succeeded at runtime");
+                        throw runtimeError ?? new ExtendedPCException(ctx.LineNumber, $"No interperetation for {ctx.Token} succeeded at runtime");
                     }
                     result = default;
                     return false;
@@ -624,13 +625,13 @@ namespace IC10_Extender.Variables
                 Getter<T> getter = (out T result, bool throwOnError) =>
                 {
                     mappingSource(out var mappings, throwOnError);
-                    if (mappings.TryGetValue(ctx.token, out result))
+                    if (mappings.TryGetValue(ctx.Token, out result))
                     {
                         return true;
                     }
                     if (throwOnError)
                     {
-                        throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.IncorrectVariable, ctx.lineNumber);
+                        throw new ProgrammableChipException(ProgrammableChipException.ICExceptionType.IncorrectVariable, ctx.LineNumber);
                     }
                     result = default;
                     return false;
@@ -645,9 +646,9 @@ namespace IC10_Extender.Variables
                 //true here to fail-fast if something is wrong with the substitution source, despite the actual existence of a matching substitute being optional
                 source(ctx)(out var substitutions, true); 
 
-                if (substitutions.TryGetValue(ctx.token, out string substituted))
+                if (substitutions.TryGetValue(ctx.Token, out string substituted))
                 {
-                    ctx.token = substituted;
+                    ctx.Token = substituted;
                 }
                 return wrapped(ctx);
             };
@@ -696,7 +697,7 @@ namespace IC10_Extender.Variables
             return (ctx) => {
                 Getter<Dictionary<string, double>> getter = (out Dictionary<string, double> result, bool throwOnError) =>
                 {
-                    result = ctx.chip.Defines;
+                    result = ctx.Chip.Defines;
                     return true;
                 };
                 return getter;
@@ -708,7 +709,7 @@ namespace IC10_Extender.Variables
             return (ctx) => {
                 Getter<Dictionary<string, AliasValue>> getter = (out Dictionary<string, AliasValue> result, bool throwOnError) =>
                 {
-                    result = ctx.chip.Aliases.Where(kvp => filter.HasFlag(kvp.Value.Target)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+                    result = ctx.Chip.Aliases.Where(kvp => filter.HasFlag(kvp.Value.Target)).ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
                     return true;
                 };
                 return getter;
@@ -720,7 +721,7 @@ namespace IC10_Extender.Variables
             return (ctx) => {
                 Getter<Dictionary<string, int>> getter = (out Dictionary<string, int> result, bool throwOnError) =>
                 {
-                    result = ctx.chip.JumpTags;
+                    result = ctx.Chip.JumpTags;
                     return true;
                 };
                 return getter;
@@ -759,10 +760,10 @@ namespace IC10_Extender.Variables
                 {
                     if (throwOnError)
                     {
-                        result = double.Parse(ctx.token);
+                        result = double.Parse(ctx.Token);
                         return true;
                     }
-                    return double.TryParse(ctx.token, out result);
+                    return double.TryParse(ctx.Token, out result);
                 };
                 return getter;
             };
@@ -776,10 +777,10 @@ namespace IC10_Extender.Variables
                 {
                     if (throwOnError)
                     {
-                        result = long.Parse(ctx.token);
+                        result = long.Parse(ctx.Token);
                         return true;
                     }
-                    return long.TryParse(ctx.token, out result);
+                    return long.TryParse(ctx.Token, out result);
                 };
                 return getter;
             };
@@ -793,10 +794,10 @@ namespace IC10_Extender.Variables
                 {
                     if (throwOnError)
                     {
-                        result = int.Parse(ctx.token);
+                        result = int.Parse(ctx.Token);
                         return true;
                     }
-                    return int.TryParse(ctx.token, out result);
+                    return int.TryParse(ctx.Token, out result);
                 };
                 return getter;
             };
@@ -810,10 +811,10 @@ namespace IC10_Extender.Variables
                 {
                     if (throwOnError)
                     {
-                        result = short.Parse(ctx.token);
+                        result = short.Parse(ctx.Token);
                         return true;
                     }
-                    return short.TryParse(ctx.token, out result);
+                    return short.TryParse(ctx.Token, out result);
                 };
                 return getter;
             };
@@ -827,10 +828,10 @@ namespace IC10_Extender.Variables
                 {
                     if (throwOnError)
                     {
-                        result = byte.Parse(ctx.token);
+                        result = byte.Parse(ctx.Token);
                         return true;
                     }
-                    return byte.TryParse(ctx.token, out result);
+                    return byte.TryParse(ctx.Token, out result);
                 };
                 return getter;
             };
@@ -843,14 +844,14 @@ namespace IC10_Extender.Variables
             );
         }
 
-        public static Getter<T> Bind<T>(this VarFactory<T> factory, ChipWrapper chip, int lineNumber, string token)
+        public static Getter<T> Bind<T>(this VarFactory<T> factory, ChipWrapper chip, int lineNumber, StyledLine line, string token)
         {
-            return factory(new Binding(chip, lineNumber, token));
+            return factory(new Binding(chip, lineNumber, line, token));
         }
 
-        public static Getter<T> Bind<T>(this Variable<T> variable, ChipWrapper chip, int lineNumber, string token)
+        public static Getter<T> Bind<T>(this Variable<T> variable, ChipWrapper chip, int lineNumber, StyledLine line, string token)
         {
-            return variable.Build.Bind(chip, lineNumber, token);
+            return variable.Build.Bind(chip, lineNumber, line, token);
         }
     }
 }

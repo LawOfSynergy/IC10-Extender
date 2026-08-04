@@ -1,4 +1,4 @@
-﻿using Assets.Scripts.Objects.Electrical;
+﻿using IC10_Extender.Variables;
 
 namespace IC10_Extender.Operations
 {
@@ -9,20 +9,20 @@ namespace IC10_Extender.Operations
     //create a publicly accessable class for this, so that add-ons don't have to publicize the core dll
     public abstract class Operation
     {
-        public readonly ChipWrapper Chip;
+        public readonly CompileContext Context;
         public readonly int LineNumber;
+        public readonly BoundSignature Variables;
+        public readonly ChipWrapper Chip;
 
         public PreExecute PreExecute;
         public PostExecute PostExecute;
 
-        protected Operation(ChipWrapper chip, int lineNumber)
+        protected Operation(CompileContext ctx, Line line, BoundSignature variables, ChipWrapper chip)
         {
+            Context = ctx;
+            LineNumber = line.LineNumber;
+            Variables = variables;
             Chip = chip;
-            LineNumber = lineNumber;
-        }
-
-        protected Operation(ChipWrapper chip, Line line) : this(chip, line.LineNumber)
-        {
             PreExecute = line.PreExecute;
             PostExecute = line.PostExecute;
         }

@@ -8,6 +8,9 @@ namespace IC10_Extender.Compat
         public abstract bool Accept();
         public abstract void OnFail();
 
+        public bool Enabled => Accept();
+        public bool Disabled => !Accept();
+
         public static implicit operator Func<bool>(CompatibilityCheck compat)
         {
             return compat.Accept;

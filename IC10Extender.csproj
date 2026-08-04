@@ -15,6 +15,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<Reference Include="Microsoft.CSharp" />
 		<!-- <PackageReference Include="Lib.Harmony" Version="2.3.6" /> -->
 		<PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.3" PrivateAssets="all" />
 		<PackageReference Include="BepInEx.Core" Version="5.4.21" />

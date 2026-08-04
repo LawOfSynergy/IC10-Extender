@@ -1,6 +1,7 @@
 ﻿using Assets.Scripts.Objects.Electrical;
 using IC10_Extender.Operations;
 using IC10_Extender.Wrappers;
+using MonoMod.Utils;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -103,27 +104,38 @@ namespace IC10_Extender
         /// </summary>
         public Dictionary<string, AliasValue> Aliases
         {
-            get
+            get //needs to translate between their alias value and ours
             {
                 Dictionary<string, AliasValue> rv = new Dictionary<string, AliasValue>();
-                foreach (var entry in chip._Aliases)
-                {
-                    rv.Add(entry.Key, entry.Value);
-                }
+                rv.AddRange(chip._Aliases);
                 return rv;
             }
             set
             {
                 chip._Aliases.Clear();
-                foreach (var entry in value)
-                {
-                    chip._Aliases[entry.Key] = entry.Value;
-                }
+                chip._Aliases.AddRange(value);
             }
         }
 
-        public Dictionary<string, int> JumpTags => chip._JumpTags;
-        public Dictionary<string, double> Defines => chip._Defines;
+        public Dictionary<string, int> JumpTags
+        {
+            get => chip._JumpTags;
+            set
+            {
+                chip._JumpTags.Clear();
+                chip._JumpTags.AddRange(value);
+            }
+        }
+
+        public Dictionary<string, double> Defines
+        {
+            get => chip._Defines;
+            set
+            {
+                chip._Defines.Clear();
+                chip._Defines.AddRange(value);
+            }
+        } 
 
         public int NextAddr
         {

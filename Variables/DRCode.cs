@@ -4,38 +4,51 @@ namespace IC10_Extender.Variables
 {
     public readonly struct DRCode
     {
-        public static readonly Regex Pattern = new Regex(@"^(?:(?<device>d)(?<self>b)(?::(?<network>[0-9]+))?|(?<device>d)(?<register>r*)(?<index>[0-9]+)(?::(?<network>[0-9]+))?|(?<register>r*)(?<index>[0-9]+))$", RegexOptions.Compiled);
+        public static readonly Regex Pattern = new Regex(@"^((?<device>d)(?<self>b)(:(?<network>[0-9]+))?|(?<device>d)(?<register>r*)(?<index>[0-9]+)(:(?<network>[0-9]+))?|(?<register>r*)(?<index>[0-9]+))$", RegexOptions.Compiled | RegexOptions.ExplicitCapture);
 
-        public readonly string code;
-        public readonly bool success;
-        public readonly bool self;
-        public readonly bool isDevice;
-        public readonly int regCount;
-        public readonly int index;
-        public readonly int network;
+        public readonly string Code; //the full token originally passed in
+        public readonly string DRPart; // e.g. db | d6 | dr16 | drr2 | r5 | rr3
+        public readonly string NetworkPart; // part after the ":" (excluded) e.g. :123
+        public readonly bool Success;
+        public readonly bool Self;
+        public readonly bool IsDevice;
+        public readonly int RegCount;
+        public readonly int Index;
+        public readonly int Network;
 
-        public bool HasRegisterLookups { get { return regCount > 0; } }
-        public bool ImpliedRegisterLookup { get { return regCount == 0 && !isDevice; } }
+        public bool HasRegisterLookups { get { return RegCount > 0; } }
+        public bool ImpliedRegisterLookup { get { return RegCount == 0 && !IsDevice; } }
 
         public DRCode(string code)
         {
-            this.code = code;
+            this.Code = code;
 
             var results = Pattern.Match(code);
-            success = results.Success;
-            if (success)
+            Success = results.Success;
+            if (Success)
             {
-                self = results.Groups["self"].Length > 0;
-                isDevice = results.Groups["device"].Length > 0;
-                regCount = results.Groups["register"].Length;
-                index = self ? int.MaxValue : int.Parse(results.Groups["index"].Value);
-                network = results.Groups["network"].Success ? int.Parse(results.Groups["network"].Value) : int.MinValue;
+                var self = results.Groups["self"];
+                var device = results.Groups["device"];
+                var register = results.Groups["register"];
+                var index = results.Groups["index"];
+                var network = results.Groups["network"];
+
+                this.DRPart = device.Value + self.Value + register.Value + index.Value;
+                this.NetworkPart = network.Value;
+
+                this.Self = self.Length > 0;
+                IsDevice = results.Groups["device"].Length > 0;
+                RegCount = register.Length;
+                this.Index = this.Self ? int.MaxValue : int.Parse(index.Value);
+                this.Network = network.Success ? int.Parse(network.Value) : int.MinValue;
             } else {
-                self = default;
-                isDevice = default;
-                regCount = default;
-                index = default;
-                network = int.MinValue;
+                DRPart = "";
+                NetworkPart = "";
+                Self = default;
+                IsDevice = default;
+                RegCount = default;
+                Index = default;
+                Network = int.MinValue;
             }
         }
     }

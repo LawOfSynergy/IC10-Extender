@@ -1,123 +1,83 @@
-﻿using Assets.Scripts.UI;
-using IC10_Extender.Highlighters;
-using System;
+﻿using System;
 using System.Linq;
+using Assets.Scripts.UI;
+using IC10_Extender.Highlight;
+using IC10_Extender.Variables;
 using UnityEngine;
 
 namespace IC10_Extender.Operations
 {
     public abstract class ExtendedOpCode
     {
-        public string OpCode { get; private set; }
+        public static readonly ILogger Log = new FallbackLogger(() => Plugin.InstanceLogger, LogLevel.Info);
 
-        protected HelpReference helpPage;
+        public Signature Signature { get; private set; }
         public bool Deprecated { get; private set; }
-        
-        public ExtendedOpCode(string opcode, bool deprecated = false)
+
+        public string OpCode => Signature.Name;
+        public Style Style => Signature.Style.Value;
+
+        private readonly bool hasHelp;
+        public string Description { get; protected set; }
+        public HelpReference HelpPage { get; protected set; }
+
+        public ExtendedOpCode(Signature signature, string description, bool deprecated = false)
         {
-            OpCode = opcode;
+            Signature = signature;
             Deprecated = deprecated;
+            hasHelp = !deprecated;
+            Description = description;
+
+            signature.Style = signature.Style ?? (deprecated ? Theme.Default.DeprecatedOpCode : Theme.Default.OpCode);
         }
 
-        /**
-         * throw ProgrammableChipException or ExtendedPCException if the input is not acceptable, e.g. if the number of args doesn't match
-         */
-        public abstract void Accept(int lineNumber, string[] source);
-
-        /// <summary>
-        /// Create an instance of the Operation represented by this ExtendedOpCode for use at runtime.
-        /// </summary>
-        /// <param name="chip"></param>
-        /// <param name="lineNumber"></param>
-        /// <param name="source"></param>
-        /// <returns></returns>
-        public abstract Operation Create(ChipWrapper chip, int lineNumber, StyledLine line, string[] source);
-
-        /// <summary>
-        /// The help string for each parameter of this command in the order they appear (excluding the opcode itself).
-        /// </summary>
-        /// <returns></returns>
-        public abstract HelpString[] Params();
-
-        [Obsolete("Use VarArgParams() instead")]
-        public virtual HelpString? VarArgParam() { return null; }
-
-        public virtual HelpString[] VarArgParams() { 
-            #pragma warning disable CS0618 // Wrap the obsolete single nullable vararg param into an array compatible with this new contract
-            var vararg = VarArgParam();
-            #pragma warning restore CS0618 // Type or member is obsolete
-            return vararg.HasValue ? new HelpString[] { vararg.Value } : null;
-        }
-
-        /// <summary>
-        /// The color to use for syntax highlighting. 
-        /// </summary>
-        /// <returns>A keyword (default "yellow") or a hex code of the format #RRGGBBAA (TODO fact-check?)</returns>
-        public virtual string Color()
+        public ExtendedOpCode(Signature signature, bool deprecated = false)
         {
-            return Theme.Vanilla.OpCode;
+            Signature = signature;
+            Deprecated = deprecated;
+            hasHelp = false;
         }
 
         /// <summary>
-        /// The description of this command for the help page.
+        /// This method is where validation of the tokens during compilation occurs. By default it automatically
+        /// validates that the number of tokens is within the acceptable range based on the signature this opcode was
+        /// created with. Implementors may override this method to provide additional validation when necessary prior to binding.
         /// </summary>
+        /// <param name="ctx"></param>
+        /// <param name="line"></param>
+        /// <param name="tokens"></param>
         /// <returns></returns>
-        public virtual string Description()
+        public virtual BoundSignature Compile(CompileContext ctx, Line line, IToken[] tokens)
         {
-            return "";
+            return Signature.Bind(ctx, line, tokens);
         }
+
+        public abstract Operation Create(CompileContext ctx, Line line, BoundSignature signature, ChipWrapper chip);
+
 
         public virtual void InitHelpPage(ScriptHelpWindow window)
         {
-            Debug.Log($"Initializing HelpPage for {OpCode}");
-            Plugin.Logger.LogInfo($"Initializing HelpPage for {OpCode}");
+            if (!hasHelp) return;
+
+            Log.Info($"Initializing HelpPage for {OpCode}");
             try
             {
-                helpPage = UnityEngine.Object.Instantiate(window.ReferencePrefab, window.FunctionTransform);
-                helpPage.Setup(
-                    $"<color={Color()}>{OpCode}</color> {CommandExample()}",
-                    Description(),
+                HelpPage = UnityEngine.Object.Instantiate(window.ReferencePrefab, window.FunctionTransform);
+                HelpPage.Setup(
+                    $"<color={Signature.Style.Value.Foreground}>{OpCode}</color> {Signature.CommandExample(Theme.Default)}",
+                    Description,
                     window.DefaultItemImage,
                     HelpReference.INSTRUCTION_STRING,
                     Animator.StringToHash(OpCode),
                     HelpReference.CommandHash
                 );
-                Debug.Log($"Initializing HelpPage for {OpCode}");
-                Plugin.Logger.LogDebug($"Initialized HelpPage: {helpPage}");
-                window._helpReferences.Add(helpPage);
+                Log.Debug($"Initialized HelpPage: {HelpPage}");
+                window._helpReferences.Add(HelpPage);
             }
             catch (Exception e)
             {
-                Plugin.Logger.LogError(e);
+                e.Print(Log);
             }
-        }
-
-        public HelpReference HelpPage()
-        {
-            return helpPage;
-        }
-
-        public string CommandExample(int spaceCount = 0, string overrideColor = null)
-        {
-            var paramList = Params();
-            var varArgs = VarArgParams();
-            var result = "";
-
-            if (paramList == null && varArgs == null) return result;
-
-            var args = (paramList ?? new HelpString[0]).Skip(spaceCount);
-
-            if (varArgs != null && varArgs.Length > 0)
-            {
-                var varargSkip = Math.Max(0, (spaceCount - paramList.Length) % varArgs.Length);
-                args = args.Concat(varArgs.Skip(varargSkip));
-            }
-
-            foreach (var arg in args)
-            {
-                result += (overrideColor != null ? arg.Strip() : arg) + " ";
-            }
-            return overrideColor == null ? result.TrimEnd() : string.Format("<color={1}>{0}</color>", result.TrimEnd(), overrideColor);
         }
     }
 }

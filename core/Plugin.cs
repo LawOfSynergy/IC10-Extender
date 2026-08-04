@@ -1,4 +1,5 @@
-﻿using Assets.Scripts;
+﻿using System;
+using System.Runtime.CompilerServices;
 using Assets.Scripts.Objects.Electrical;
 using BepInEx;
 using BepInEx.Configuration;
@@ -6,11 +7,11 @@ using BepInEx.Logging;
 using HarmonyLib;
 using HarmonyLib.Tools;
 using IC10_Extender.Compat;
-using IC10_Extender.Highlighters;
 using IC10_Extender.Operations;
-using System;
-using System.Collections.Generic;
+using IC10_Extender.Preprocess;
 using static IC10_Extender.Compat.ConfigExtensions;
+
+[assembly: InternalsVisibleTo("IC10Extender.Tests")]
 
 namespace IC10_Extender
 {
@@ -18,19 +19,22 @@ namespace IC10_Extender
     [BepInPlugin("net.lawofsynergy.stationeers.ic10e", "IC10 Extender", "0.2.1.0")]
     public class Plugin : BaseUnityPlugin
     {
-        public static new ManualLogSource Logger { get; private set; }
+        
+        public static ManualLogSource InstanceLogger { get; private set; }
         public static Plugin Instance { get; private set; }
+
+        public static ILogger Log = new FallbackLogger(() => InstanceLogger, LogLevel.Info);
 
         public ConfigEntry<bool> AddPreprocessorVariants { get; private set; }
         public ConfigEntry<bool> LabelsCanShareLine { get; private set; }
 
-        public readonly ConstantCompatibility Common;
-        public readonly ConstantCompatibility AfterStrings;
-        public readonly ConstantCompatibility BeforeStrings;
-        public readonly CompatibilityCheck PreprocessorVariantsEnabled;
-        public readonly CompatibilityCheck PreprocessorVariantsDisabled;
-        public readonly CompatibilityCheck LabelsCanShareLineEnabled;
-        public readonly CompatibilityCheck LabelsCanShareLineDisabled;
+        public static ConstantCompatibility Common { get; } = new ConstantCompatibility(true);
+        public static ConstantCompatibility AfterStrings { get; } = new ConstantCompatibility(typeof(ProgrammableChip).GetMethod("PackAscii6", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static) != null);
+        public static ConstantCompatibility BeforeStrings { get; } = new ConstantCompatibility(!AfterStrings.Condition);
+        public static CompatibilityCheck PreprocessorVariantsEnabled { get; internal set; }
+        public static CompatibilityCheck PreprocessorVariantsDisabled { get; internal set; }
+        public static CompatibilityCheck LabelsCanShareLineEnabled { get; internal set; }
+        public static CompatibilityCheck LabelsCanShareLineDisabled { get; internal set; }
 
         public Plugin()
         {
@@ -39,28 +43,22 @@ namespace IC10_Extender
                 throw new InvalidOperationException("Duplicate instance of IC10 Extender detected!");
             }
 
-            Logger = base.Logger;
+            InstanceLogger = Logger;
             Instance = this;
 
             InitConfig();
 
             //initialize compatability checks
-            UnityEngine.Debug.Log("Initializing Compatability Flags");
-            Logger.LogInfo("Initializing Compatability Flags");
+            Log.Info("Initializing Compatability Flags");
 
-            Common = new ConstantCompatibility(true);
-            AfterStrings = new ConstantCompatibility(typeof(ProgrammableChip).GetMethod("PackAscii6", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static) != null);
-            BeforeStrings = new ConstantCompatibility(!AfterStrings.Condition);
             PreprocessorVariantsEnabled = AddPreprocessorVariants.IsEnabled();
             PreprocessorVariantsDisabled = AddPreprocessorVariants.IsDisabled();
             LabelsCanShareLineEnabled = LabelsCanShareLine.IsEnabled();
             LabelsCanShareLineDisabled = LabelsCanShareLine.IsDisabled();
         }
-
         private void InitConfig()
         {
-            UnityEngine.Debug.Log("Loading Config");
-            Logger.LogInfo("Loading Config");
+            Log.Info("Loading Config");
 
             AddPreprocessorVariants = Config.Bind(
                 "Features",
@@ -78,38 +76,28 @@ namespace IC10_Extender
                 "LabelsCanShareLine",
                 false,
                 new ConfigDescription(
-                    "If true, a label can be followed by a statement on the same line. If false, the vanilla behavior of a label having to take up a whole line is be used.",
-                    tags: WithTags(1, "LabelsCanShareLine", false)
+                    "If true, a label can be followed by a statement on the same line. If false, the vanilla behavior of a label having to take up a whole line is used.",
+                    tags: WithTags(1, "Labels Can Share Line", false)
                 )
             );
         }
 
-        private void InitCompatabilityChecks()
-        {
-
-        }
-
         void Awake()
         {
-            UnityEngine.Debug.Log("Loading Mod");
-            Logger.LogInfo("Loading Mod");
+            Log.Info("Loading Mod");
 
             try
             {
-                UnityEngine.Debug.Log("Loading Harmony Patches");
-                Logger.LogInfo("Loading Harmony Patches");
+                Log.Info("Loading Harmony Patches");
                 var harmony = new Harmony("com.lawofsynergy.stationeers.ic10e");
                 HarmonyFileLog.Enabled = true;
                 harmony.PatchAll(typeof(CommonPatches));
-                UnityEngine.Debug.Log("Patch succeeded");
-                Logger.LogInfo("Patch succeeded");
+                Log.Info("Patch succeeded");
             }
             catch (Exception e)
             {
-                UnityEngine.Debug.Log("Patch Failed");
-                UnityEngine.Debug.Log(e.ToString());
-                Logger.LogInfo("Patch Failed");
-                Logger.LogInfo(e.ToString());
+                Log.Info("Patch Failed");
+                Log.Info(e.ToString());
             }
 
             DefaultPreprocessors.Register();

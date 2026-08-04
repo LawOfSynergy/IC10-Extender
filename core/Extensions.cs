@@ -1,17 +1,23 @@
-﻿using Assets.Scripts.Objects.Electrical;
-using Assets.Scripts.Util;
-using IC10_Extender.Exceptions;
-using IC10_Extender.Variables;
-using IC10_Extender.Wrappers;
-using System;
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using Assets.Scripts.Objects.Electrical;
+using Assets.Scripts.Util;
+using IC10_Extender.Highlight;
+using IC10_Extender.Variables;
+using IC10_Extender.Wrappers;
 using static Assets.Scripts.Localization;
 
 namespace IC10_Extender
 {
     public static class Extensions
     {
+        public static ILogger Log = new FallbackLogger(() => Plugin.InstanceLogger, LogLevel.Info);
+
         public const BindingFlags All = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
         public const BindingFlags AllDeclared = All | BindingFlags.DeclaredOnly;
 
@@ -19,20 +25,20 @@ namespace IC10_Extender
         {
             if ((object)type == null)
             {
-                Plugin.Logger?.LogDebug("AccessTools.DeclaredField: type is null");
+                Log.Debug("AccessTools.DeclaredField: type is null");
                 return null;
             }
 
             if (string.IsNullOrEmpty(name))
             {
-                Plugin.Logger?.LogDebug("AccessTools.DeclaredField: name is null/empty");
+                Log.Debug("AccessTools.DeclaredField: name is null/empty");
                 return null;
             }
 
             FieldInfo field = type.GetField(name, AllDeclared);
             if (field is null)
             {
-                Plugin.Logger?.LogDebug($"AccessTools.DeclaredField: Could not find field for type {type} and name {name}");
+                Log.Debug($"AccessTools.DeclaredField: Could not find field for type {type} and name {name}");
             }
 
             return field;
@@ -54,18 +60,18 @@ namespace IC10_Extender
             return ChipWrapper.For(chip);
         }
 
-        public static void Print(this Exception ex)
+        public static void Print(this Exception ex, ILogger log)
         {
             switch(ex)
             {
                 case ExtendedPCException epce:
-                    Plugin.Logger.LogWarning($"Error {epce.GetType().Name} at line {epce.LineNumber}: {epce.Message}\n{epce.StackTrace}");
+                    log.Warning($"Error {epce.GetType().Name} at line {epce.LineNumber}: {epce.Message}\n{epce.StackTrace}");
                     break;
                 case ProgrammableChipException pce:
-                    Plugin.Logger.LogWarning($"Error {pce.GetType().Name} at line {pce.LineNumber}: {pce.ExceptionType}\n{pce.StackTrace}");
+                    log.Warning($"Error {pce.GetType().Name} at line {pce.LineNumber}: {pce.ExceptionType}\n{pce.StackTrace}");
                     break;
                 default:
-                    Plugin.Logger.LogWarning(ex.ToString());
+                    log.Warning(ex.ToString());
                     break;
             }
         }
@@ -131,6 +137,32 @@ namespace IC10_Extender
             }
 
             return regexResult;
+        }
+
+        public static IEnumerable<Tuple<T1, T2>> Associate<T1, T2>(this IEnumerable<T1> a, IEnumerable<T2> b)
+        {
+            var aIter = a.GetEnumerator();
+            var bIter = b.GetEnumerator();
+
+            bool aHasNext, bHasNext;
+
+            aHasNext = aIter.MoveNext();
+            bHasNext = bIter.MoveNext();
+
+            while(aHasNext || bHasNext)
+            {
+                yield return new Tuple<T1, T2>(aHasNext ? aIter.Current : default, bHasNext ? bIter.Current : default);
+                aHasNext = aIter.MoveNext();
+                bHasNext = bIter.MoveNext();
+            }
+        }
+
+        public static string Concat(this IEnumerable<StyledString> tokens, Func<StyledString, string> formatter, string separator = " ")
+        {
+            var result = "";
+            tokens.ToList().ForEach(x => result += formatter(x) + separator);
+
+            return result.Substring(0, result.Length - separator.Length);
         }
     }
 }

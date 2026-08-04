@@ -1,4 +1,5 @@
 ﻿using Assets.Scripts.Objects.Electrical;
+using IC10_Extender.Variables;
 
 namespace IC10_Extender.Operations
 {
@@ -6,7 +7,7 @@ namespace IC10_Extender.Operations
     {
         public readonly ProgrammableChip._Operation op;
 
-        public LegacyAsIC10OpWrapper(ProgrammableChip._Operation op, Line line) : base(op._Chip.Wrap(), line)
+        public LegacyAsIC10OpWrapper(CompileContext ctx, Line line, BoundSignature variables, ChipWrapper chip, ProgrammableChip._Operation op) : base(ctx, line, variables, chip)
         {
             this.op = op;
         }

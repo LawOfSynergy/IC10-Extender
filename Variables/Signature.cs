@@ -284,7 +284,7 @@ namespace IC10_Extender.Variables
         {
             // Fall back to the remainder anchor when no specific token is provided (argument count errors etc.)
             var anchor = token ?? line.Raw.Locate(line.Raw.Remainder, useTokenBounds: false);
-            int column = anchor != null ? anchor.AdjustedStartIndex : 0;
+            int column = anchor != null ? anchor.AdjustedStart.Value : 0;
             context.AddError(line, column, ex.Wrap(line.LineNumber));
             if (anchor != null) line.Consume(anchor, Theme.Default.Error.WithError(ex));
             return ex;

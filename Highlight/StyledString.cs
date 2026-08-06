@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Assets.Scripts.Util;
 using IC10_Extender;
 using IC10_Extender.Variables;
 using static IC10_Extender.Highlight.TokenString;
@@ -64,15 +63,15 @@ namespace IC10_Extender.Highlight
         public Theme Theme { get; private set; }
 
         public IEnumerable<Tuple<string, Style?>> AllSegments => Unconsumed.Cast<IStyledToken>().Concat(Consumed).Cast<IStyledToken>()
-            .OrderBy(t => t.StartIndex).Select(t => new Tuple<string, Style?>(t.Text, t.Style));
+            .OrderBy(t => t.Start).Select(t => new Tuple<string, Style?>(t.Text, t.Style));
 
         public StyledString(string fullString, Theme theme = null)
             : base(
                 fullString,
-                (source, original, text, startIndex, segments) =>
+                (source, original, text, start, segments) =>
                     new StyledToken(
                         source as StyledString ?? throw new ArgumentException("Must be StyledString", nameof(source)),
-                        original, text, startIndex, segments),
+                        original, text, start, segments),
                 (source, original, text) =>
                 {
                     var ts = source as StyledString ?? throw new ArgumentException("Expected StyledString instance", nameof(source));
@@ -81,30 +80,37 @@ namespace IC10_Extender.Highlight
                     throw new ArgumentException("Unrecognized type", nameof(original));
                 })
         {
-            Theme = theme ?? Theme.Default;
+            
+            ReTheme(theme);
         }
 
+        /// <summary>
+        /// Themes tokens built by the base ctor.
+        /// Non-virtual: called from a constructor.
+        /// </summary>
+        /// <param name="theme">The new theme to resolve all token styles against</param>
         public void ReTheme(Theme theme)
         {
-            Theme = theme ?? Theme.Default;
+            var target = theme ?? Theme.Default;
             foreach (var token in consumed.Concat(unconsumed).Cast<IStyledToken>())
             {
-                token.Style = Theme[token.Style];
+                token.Style = target[token.Style];
             }
             // ReTheme virtual roots — walk leaves since only leaves carry meaningful style.
             foreach (var token in consumed.OfType<StyledVirtualToken>())
             {
                 foreach (var leaf in token.Leaves)
                 {
-                    leaf.Style = Theme[leaf.Style];
+                    leaf.Style = target[leaf.Style];
                 }
             }
+            Theme = target;
         }
 
         public string ToString(Func<IStyledToken, string> formatter)
         {
             var sorted = Consumed.Cast<IStyledToken>().Concat(Unconsumed.Cast<IStyledToken>())
-                .OrderBy(t => t.StartIndex).ToList();
+                .OrderBy(t => t.Start).ToList();
             StringBuilder sb = new StringBuilder();
             foreach (var token in sorted)
             {
@@ -129,10 +135,11 @@ namespace IC10_Extender.Highlight
             public Style? Style { get; set; }
             public Theme Theme => Source.Theme;
 
-            public StyledToken(StyledString source, StyledToken original, string text, int startIndex, IEnumerable<Segment> segments)
-                : base(source, original, text, startIndex, segments)
+            public StyledToken(StyledString source, StyledToken original, string text, Index<OriginalSpace> start, IEnumerable<Segment<OriginalSpace>> segments)
+                : base(source, original, text, start, segments)
             {
-                Style = Theme[original?.Style];
+                // Inherit verbatim; Source.Theme is unset during base construction.
+                Style = original?.Style;
             }
         }
 

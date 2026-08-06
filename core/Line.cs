@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using IC10_Extender.Highlight;
 using IC10_Extender.Operations;
 
@@ -87,15 +88,14 @@ namespace IC10_Extender
             PostExecute = IC10Extender.NoOpPostExecute;
         }
 
-        public void GetTokens(IToken anchor, out IStyledToken original, out IStyledToken display)
+        public (IStyledToken original, IStyledToken display) GetTokens(IToken anchor)
         {
-            original = Original.FromSegments(anchor.OriginalSegments) as IStyledToken;
-            display = Display.FromSegments(anchor.OriginalSegments) as IStyledToken;
+            return (Original.FromSegments(anchor.Provenance) as IStyledToken, Display.FromSegments(anchor.Provenance) as IStyledToken);
         }
 
         public IToken Consume(IToken anchor, Style style, string replace = "", bool write = false)
         {
-            GetTokens(anchor, out var original, out var display);
+            var (original, display) = GetTokens(anchor);
             original.TryConsume().TryStyle(style);
             display.TryConsume().TryStyle(style);
             if (write) return anchor.TryReplaceOrRemove(replace);
@@ -104,7 +104,7 @@ namespace IC10_Extender
 
         public IToken Replace(IToken anchor, Style style, string replace, bool write = false)
         {
-            GetTokens(anchor, out var original, out var display);
+            var (original, display) = GetTokens(anchor);
             original.TryConsume().TryStyle(style);
             display.TryReplace(replace).TryStyle(style);
             if (write) return anchor.TryReplace(replace);
@@ -113,21 +113,17 @@ namespace IC10_Extender
 
         public IToken Remove(IToken anchor, bool write)
         {
-            GetTokens(anchor, out var original, out var display);
+            var (original, display) = GetTokens(anchor);
             original.TryRemove();
             display.TryRemove();
             if (write) return anchor.TryRemove();
             return anchor;
         }
 
-        public IToken[][] Split(IToken anchor, params string[] fragments)
+        public (IToken[] Raw, IStyledToken[] Original, IStyledToken[] Display) Split(IToken anchor, params string[] fragments)
         {
-            var result = new IToken[3][];
-            GetTokens(anchor, out var original, out var display);
-            result[0] = anchor.TrySplit(fragments);
-            result[1] = original.TrySplit(fragments);
-            result[2] = display.TrySplit(fragments);
-            return result;
+            var (original, display) = GetTokens(anchor);
+            return (anchor.TrySplit(fragments), original.TrySplit(fragments), display.TrySplit(fragments));
         }
 
         /**
@@ -136,8 +132,8 @@ namespace IC10_Extender
          */
         public IToken ConsumeRemainder(Style style, bool write = false)
         {
-            var anchor = Raw.First(Raw.Remainder, 0, false);
-            GetTokens(anchor, out var original, out var display);
+            var anchor = Raw.First(Raw.Remainder, Index<RemainderSpace>.Zero, false);
+            var (original, display) = GetTokens(anchor);
 
             original.TryConsume().TryStyle(style);
             display.TryConsume().TryStyle(style);
@@ -147,7 +143,7 @@ namespace IC10_Extender
 
         private void ApplyWrappedStyles(
             ITokenizedString<StyledString.StyledToken, StyledString.StyledVirtualToken> target,
-            IReadOnlyList<Segment> segments,
+            IReadOnlyList<Segment<OriginalSpace>> segments,
             string start,
             string value,
             string end,
@@ -166,12 +162,12 @@ namespace IC10_Extender
          * styles to Original and Display. If write:true, replaces the full span in Raw with <paramref name="replace"/>.
          *
          * The <paramref name="anchor"/> must have been obtained via Raw.First(start+value+end, ...) so that
-         * OriginalSegments correctly identifies the full span.
+         * Provenance correctly identifies the full span.
          */
         public IToken WrappedConsume(IToken anchor, string start, string value, string end, Style outer, Style inner, string replace = "", bool write = false)
         {
-            ApplyWrappedStyles(Original, anchor.OriginalSegments, start, value, end, outer, inner);
-            ApplyWrappedStyles(Display, anchor.OriginalSegments, start, value, end, outer, inner);
+            ApplyWrappedStyles(Original, anchor.Provenance, start, value, end, outer, inner);
+            ApplyWrappedStyles(Display, anchor.Provenance, start, value, end, outer, inner);
             if (write) return anchor.TryReplaceOrRemove(replace);
             return anchor;
         }
@@ -182,12 +178,12 @@ namespace IC10_Extender
          * If write:true, also replaces the full span in Raw
          *
          * The <paramref name="anchor"/> must have been obtained via Raw.First(start+value+end, ...) so that
-         * OriginalSegments correctly identifies the full span.
+         * Provenance correctly identifies the full span.
          */
         public IToken WrappedReplace(TokenString.Token anchor, string start, string value, string end, Style outer, Style inner, string replacement, bool write = false, bool permanent = false)
         {
-            ApplyWrappedStyles(Original, anchor.OriginalSegments, start, value, end, outer, inner);
-            Display.FromSegments(anchor.OriginalSegments).TryReplace(replacement);
+            ApplyWrappedStyles(Original, anchor.Provenance, start, value, end, outer, inner);
+            Display.FromSegments(anchor.Provenance).TryReplace(replacement);
             if (write) return anchor.TryReplace(replacement);
             return anchor;
         }
@@ -297,6 +293,26 @@ namespace IC10_Extender
             if (token is TokenString.Token mapped) return mapped.Split(parts);
             if (token is TokenString.VirtualToken node) return node.Split(parts);
             throw new ArgumentException($"Unrecognized token type: {token.GetType().Name}", nameof(token));
+        }
+
+        /// <summary>
+        /// Resolves <paramref name="key"/> against the token's theme, then applies it. Throws
+        /// KeyNotFoundException if the theme does not define the key.
+        /// </summary>
+        public static IStyledToken TryStyle(this IStyledToken token, string key, bool overrideExisting = false)
+        {
+            if (token == null) return null;
+            return token.TryStyle(token.Theme[key], overrideExisting);
+        }
+
+        /// <summary>
+        /// Resolves <paramref name="key"/> against the token's theme, falling back to
+        /// <paramref name="fallbackKey"/> when the theme does not define it, then applies the result.
+        /// </summary>
+        public static IStyledToken TryStyle(this IStyledToken token, string key, string fallbackKey, bool overrideExisting = false)
+        {
+            if (token == null) return null;
+            return token.TryStyle(token.Theme[key, fallbackKey], overrideExisting);
         }
 
         public static IStyledToken TryStyle(this IStyledToken token, Style style, bool overrideExisting = false)

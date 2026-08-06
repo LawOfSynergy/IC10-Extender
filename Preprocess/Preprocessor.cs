@@ -22,6 +22,14 @@ namespace IC10_Extender.Preprocessors
 
         public static readonly Edit[] NoChange = new Edit[0];
         
+        /**
+         * A line insertion or deletion requested by a preprocessor.
+         *
+         * Edits are collected across the preprocessor's entire pass and applied only after it
+         * completes, so emitting one does not disturb the pass in progress. Once a pass yields any
+         * insertion or deletion, every line is Reset() and the compile recurses, which re-runs every
+         * preprocessor from the start against the modified line list.
+         */
         public readonly struct Edit
         {
             public readonly List<Line> Deletions;

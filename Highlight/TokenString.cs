@@ -3,31 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using Assets.Scripts.Util;
 using IC10_Extender;
 using IC10_Extender.Variables;
 using static IC10_Extender.Highlight.TokenString;
 
 namespace IC10_Extender.Highlight
 {
-    /// <summary>
-    /// Represents a contiguous range in the original (unmodified) string.
-    /// </summary>
-    public readonly struct Segment
-    {
-        public int StartIndex { get; }
-        public int Length { get; }
-        public int EndIndex => StartIndex + Length;
-
-        public Segment(int startIndex, int length)
-        {
-            StartIndex = startIndex;
-            Length = length;
-        }
-
-        public override string ToString() => $"[{StartIndex}..{EndIndex})";
-    }
-
     public interface IFormattableString<T>
     {
         string ToString(Func<T, string> formatter);
@@ -53,33 +34,37 @@ namespace IC10_Extender.Highlight
         /// <summary>
         /// The position of this token in the original string.
         /// <para>For virtual sub-nodes (nodes that are not the root of a virtual tree), returns the
-        /// root's <see cref="StartIndex"/> so that sub-nodes can still be located within the source
+        /// root's <see cref="Start"/> so that sub-nodes can still be located within the source
         /// string. Sub-node ordering within a virtual token is positional in the parent's
-        /// <see cref="Children"/> array, not by <see cref="StartIndex"/>.</para>
+        /// <see cref="Children"/> array, not by <see cref="Start"/>.</para>
         /// </summary>
-        int StartIndex { get; }
+        Index<OriginalSpace> Start { get; }
 
         /// <summary>
         /// The position of this token in the contiguous display string produced by
         /// <see cref="ITokenizedString{T}.ToString(Func{T,string})"/>.
-        /// <para>For virtual sub-nodes, returns the root's <see cref="AdjustedStartIndex"/>.
+        /// <para>For virtual sub-nodes, returns the root's <see cref="AdjustedStart"/>.
         /// The setter throws for virtual sub-nodes since only <see cref="TokenizedString{T,TVirtual}.ReNumber"/>
         /// should assign this value, and it only operates on root-level tokens.</para>
+        /// <para><see cref="Index{TSpace}.Removed"/> once the token is removed, and
+        /// <see cref="Index{TSpace}.Missing"/> for a virtual sub-node whose root has not been
+        /// numbered. <see cref="Index{TSpace}.Virtual"/> is not reachable here: a virtual token does
+        /// have a layout position, it just has no source counterpart.</para>
         /// </summary>
-        int AdjustedStartIndex { get; }
+        Index<AdjustedSpace> AdjustedStart { get; }
 
         /// <summary>
         /// Number of characters this token covers. For virtual tokens this reflects only the
         /// current live (non-removed) leaf content and changes as sub-nodes are removed or replaced.
         /// </summary>
-        int Length { get; }
+        Offset<TextSpace> Length { get; }
 
         /// <summary>
         /// The text content. For mapped tokens this is immutable after construction. For virtual
         /// tokens this is the concatenation of all non-removed leaf descendants and changes as
         /// sub-nodes are removed.
         /// </summary>
-        string Text { get; }
+        CoordString<TextSpace> Text { get; }
 
         bool IsRemoved { get; }
         bool IsConsumed { get; }
@@ -88,7 +73,7 @@ namespace IC10_Extender.Highlight
         bool IsSplit { get; }
 
         /// <summary>
-        /// The direct children produced by <see cref="Split"/>. Includes removed children — this is 
+        /// The direct children produced by <see cref="Split"/>. Includes removed children; this is
         /// an immutable snapshot of the split operation. Empty if never split.
         /// </summary>
         IToken[] Children { get; }
@@ -101,18 +86,47 @@ namespace IC10_Extender.Highlight
         IToken Parent { get; }
 
         /// <summary>
-        /// The original-string segments this token covers.
+        /// The provenance of this token: which original-string ranges it is a transform of.
         /// <para>For mapped tokens: one segment per source fragment in original-string order,
-        /// non-overlapping and sorted by <see cref="Segment.StartIndex"/>.</para>
-        /// <para>For virtual root tokens: the <see cref="OriginalSegments"/> of the mapped token
-        /// that was replaced, preserved for positional lookup via
-        /// <see cref="ITokenizedString{T}.AtIndex"/>. Note that <see cref="Text"/> no longer
-        /// corresponds to these segments character-for-character.</para>
-        /// <para>For virtual sub-nodes: always empty — sub-nodes have no original-string
-        /// mapping.</para>
+        /// non-overlapping and sorted by <see cref="Segment{TSpace}.Start"/>. These correspond to
+        /// <see cref="Text"/> character-for-character, so <see cref="MapToOriginal"/> is defined.</para>
+        /// <para>For virtual tokens: the provenance of the mapped token that was replaced, shared by
+        /// every node in the virtual tree and inherited by sub-nodes. <see cref="Text"/> does
+        /// <em>not</em> correspond to it character-for-character, so this answers "where did this come
+        /// from", not "which source character is this", so <see cref="MapToOriginal"/> throws.</para>
         /// </summary>
-        IReadOnlyList<Segment> OriginalSegments { get; }
-    
+        IReadOnlyList<Segment<OriginalSpace>> Provenance { get; }
+
+        /// <summary>
+        /// Projects a range of this token's own text onto the original ranges it covers. Returns more
+        /// than one segment when this token's <see cref="Provenance"/> are disjoint and the
+        /// range straddles a gap.
+        /// <para>Throws <see cref="InvalidOperationException"/> for virtual tokens, which have no
+        /// character-level provenance. A walk that must ask every token where it came from should use
+        /// <see cref="Provenance"/> instead, which is total and never throws.</para>
+        /// </summary>
+        IReadOnlyList<Segment<OriginalSpace>> MapToOriginal(Segment<TextSpace> range);
+
+        /// <summary>
+        /// Projects an original range onto this token's text. One-to-one: text is contiguous, so a
+        /// covered original range always maps to a single text range even when it straddles a gap.
+        /// <para>Throws <see cref="InvalidOperationException"/> if the range is not fully covered by
+        /// this token, or for virtual tokens.</para>
+        /// </summary>
+        Segment<TextSpace> MapToText(Segment<OriginalSpace> range);
+
+        /// <summary>
+        /// Projects a range of this token's text onto the rendered string. Total for live tokens,
+        /// virtual roots included, since adjusted space is the concatenation of token texts.
+        /// </summary>
+        Segment<AdjustedSpace> MapToAdjusted(Segment<TextSpace> range);
+
+        /// <summary>
+        /// Projects a range of the rendered string onto this token's text.
+        /// <para>Throws <see cref="InvalidOperationException"/> if the range is not wholly within
+        /// this token.</para>
+        /// </summary>
+        Segment<TextSpace> MapToText(Segment<AdjustedSpace> range);
     }
 
     public interface IToken<out T, out TVirtual> : IToken
@@ -152,7 +166,7 @@ namespace IC10_Extender.Highlight
         /// <summary>
         /// Replaces this mapped token with a virtual root token carrying the replacement text.
         /// The virtual root is added to the source string's consumed collection. The mapped token
-        /// is removed. The virtual root inherits the mapped token's <see cref="OriginalSegments"/>
+        /// is removed. The virtual root inherits the mapped token's <see cref="Provenance"/>
         /// for positional lookup purposes; <see cref="Text"/> will no longer correspond to those
         /// segments character-for-character.
         /// </summary>
@@ -162,7 +176,7 @@ namespace IC10_Extender.Highlight
     /// <summary>
     /// Read-only and segment-based access to a tokenized string. Implemented by all
     /// <see cref="TokenizedString{T,TVirtual}"/> variants including <see cref="StyledString"/>.
-    /// Does not expose search or structural mutation operations other than <see cref="FromSegments"/>— those are on
+    /// Does not expose search or structural mutation operations other than <see cref="FromSegments"/>; those are on
     /// <see cref="IPreprocessableString{T,TVirtual}"/>.
     /// </summary>
     public interface ITokenizedString<out T, out TVirtual> : IFormattableString<IToken>
@@ -176,21 +190,49 @@ namespace IC10_Extender.Highlight
         /// </summary>
         /// <param name="segments"></param>
         /// <returns></returns>
-        IToken FromSegments(IEnumerable<Segment> segments);
+        IToken FromSegments(IEnumerable<Segment<OriginalSpace>> segments);
 
         /// <summary>
-        /// Returns the token (consumed or unconsumed) whose <see cref="IToken{T}.OriginalSegments"/>
+        /// Returns the token (consumed or unconsumed) whose <see cref="IToken{T}.Provenance"/>
         /// contain <paramref name="index"/>. Returns <c>default</c> if no token covers that position.
         /// </summary>
-        IToken AtIndex(int index);
+        IToken TokenAt(Index<OriginalSpace> index);
+
+        /// <summary>
+        /// Where a source position currently appears in the layout string.
+        /// <para>All three sentinels are reachable:
+        /// <see cref="Index{TSpace}.Missing"/> when the position lies outside the source string,
+        /// <see cref="Index{TSpace}.Removed"/> when the region was removed, and
+        /// <see cref="Index{TSpace}.Virtual"/> when it sits under a replacement and so has no
+        /// character-precise layout position.</para>
+        /// </summary>
+        Index<AdjustedSpace> MapToAdjusted(Index<OriginalSpace> index);
+
+        /// <summary>
+        /// Which source position a layout position came from.
+        /// <para>Returns <see cref="Index{TSpace}.Missing"/> when the position lies outside the
+        /// layout string, and <see cref="Index{TSpace}.Virtual"/> when it falls inside replacement
+        /// text. <see cref="Index{TSpace}.Removed"/> is <em>not</em> reachable here: removed text is
+        /// absent from the layout, so there is no layout position to ask about.</para>
+        /// <para>For a token-granular answer in the virtual case, use <see cref="TokenAt"/> and read
+        /// the token's <see cref="IToken.Provenance"/>.</para>
+        /// </summary>
+        Index<OriginalSpace> MapToOriginal(Index<AdjustedSpace> index);
 
         /// <summary>
         /// Returns the token whose contiguous display position contains <paramref name="index"/>.
         /// Returns <c>default</c> if no token covers that position.
         /// </summary>
-        IToken AtAdjustedIndex(int index);
+        IToken TokenAt(Index<AdjustedSpace> index);
 
-        string Remainder { get; }
+        /// <summary>The unconsumed text remaining to be processed.</summary>
+        CoordString<RemainderSpace> Remainder { get; }
+
+        /// <summary>
+        /// The layout string: every live token in <see cref="IToken.Start"/> order. The untyped
+        /// form is <see cref="object.ToString()"/>.
+        /// </summary>
+        CoordString<AdjustedSpace> Render { get; }
 
         IReadOnlyList<T> Unconsumed { get; }
         IReadOnlyList<IToken> Consumed { get; }
@@ -210,7 +252,7 @@ namespace IC10_Extender.Highlight
     /// operations. Implemented by <see cref="TokenString"/> and <see cref="TokenizedString{T,TVirtual}"/>
     /// subclasses used as <c>Raw</c> or <c>ResetRaw</c> in <see cref="Line"/>.
     /// <para>
-    /// <see cref="StyledString"/> intentionally does <em>not</em> implement this interface — styled
+    /// <see cref="StyledString"/> intentionally does <em>not</em> implement this interface. Styled
     /// strings are rendering records, not preprocessing targets. Use <see cref="ITokenizedString{T,TVirtual}.FromSegments"/>
     /// for all synchronisation from a Raw anchor into a styled string.
     /// </para>
@@ -223,15 +265,15 @@ namespace IC10_Extender.Highlight
         /// Finds the first occurrence of <paramref name="token"/> among unconsumed tokens,
         /// isolates it as a new token, and returns it. This is always a fresh unconsumed token.
         /// </summary>
-        T First(string token, int startAt = 0, bool useTokenBounds = true);
+        T First(string token, Index<RemainderSpace> startAt = default, bool useTokenBounds = true);
 
         /// <summary>
-        /// Walks the combined token sequence (unconsumed ∪ consumed) in <see cref="IToken.StartIndex"/>
+        /// Walks the combined token sequence (unconsumed ∪ consumed) in <see cref="IToken.Start"/>
         /// order. Returns an exact-match consumed token if one exists at the candidate position;
         /// otherwise builds a new token from the unconsumed collection. You may need to walk the
         /// object tree to get to the leaf tokens for further processing.
         /// </summary>
-        IToken Locate(string token, int startAt = 0, bool useTokenBounds = true);
+        IToken Locate(string token, Index<AdjustedSpace> startAt = default, bool useTokenBounds = true);
     }
 
     /// <summary>
@@ -247,25 +289,26 @@ namespace IC10_Extender.Highlight
         public const string TokenStartBoundary = @"(?<=^|\s+)";
         public const string TokenEndBoundary = @"(?=\s+|$)";
 
+
         public static readonly ILogger Log = new FallbackLogger(() => Plugin.InstanceLogger, LogLevel.Info);
         public static readonly Func<IToken, string> RawFormat = t => t.Text;
 
-        public readonly string Original;
+        public readonly CoordString<OriginalSpace> Original;
 
         protected readonly List<T> unconsumed = new List<T>();
         protected readonly List<IToken> consumed = new List<IToken>();
 
         /// <summary>
-        /// factory: (source, original, text, startIndex, segments) -> T
+        /// factory: (source, original, text, start, segments) -> T
         /// </summary>
         /// <remarks>Metadata outside of tokenization (e.g. styling) is expected to be carried over or not as makes sense for the extending subclass.</remarks>
-        protected readonly Func<TokenizedString<T, TVirtual>, T, string, int, IEnumerable<Segment>, T> tokenFactory;
+        protected readonly Func<TokenizedString<T, TVirtual>, T, string, Index<OriginalSpace>, IEnumerable<Segment<OriginalSpace>>, T> tokenFactory;
 
         /// <summary>
         /// factory: (source, original, text) -> TVirtual
         /// </summary>
         /// <remarks>
-        /// <para>If original is a TokenBase, the virtual token will inherit its StartIndex and OriginalSegments, and Parent will remain null.
+        /// <para>If original is a TokenBase, the virtual token will inherit its Start and Provenance, and Parent will remain null.
         /// Otherwise, the created token will have Parent = original, and its fields will be computed or delegated to parent.
         /// Text and Length will be from the provided text, unless the token itself becomes a parent, at which point, the fields will be computed.</para>
         /// <para>Metadata outside of tokenization (e.g. styling) is expected to be carried over or not as makes sense for the extending subclass.</para>
@@ -282,7 +325,7 @@ namespace IC10_Extender.Highlight
         public IReadOnlyList<TVirtual> Virtual => consumed.Where(t => t is TVirtual).Cast<TVirtual>().ToList().AsReadOnly();
 
         /// <summary>
-        /// Cache of tokens keyed by their <see cref="TokenBase.OriginalSegments"/> serialised as
+        /// Cache of tokens keyed by their <see cref="TokenBase.Provenance"/> serialised as
         /// a canonical string. Populated on every token creation via <see cref="RegisterToken"/>
         /// and consulted by <see cref="FromSegments"/> before attempting to build from unconsumed
         /// text. Allows <see cref="FromSegments"/> to retrieve already-consumed or split tokens
@@ -292,12 +335,13 @@ namespace IC10_Extender.Highlight
 
         public TokenizedString(
             string fullString,
-            Func<TokenizedString<T, TVirtual>, T, string, int, IEnumerable<Segment>, T> tokenFactory,
+            Func<TokenizedString<T, TVirtual>, T, string, Index<OriginalSpace>, IEnumerable<Segment<OriginalSpace>>, T> tokenFactory,
             Func<TokenizedString<T, TVirtual>, IToken, string, TVirtual> virtualFactory)
         {
+            Original = (fullString ?? throw new ArgumentNullException(nameof(fullString))).In<OriginalSpace>();
             this.tokenFactory = tokenFactory ?? throw new ArgumentNullException(nameof(tokenFactory));
             this.virtualFactory = virtualFactory ?? throw new ArgumentNullException(nameof(virtualFactory));
-            unconsumed.Add(tokenFactory(this, null, fullString, 0, new List<Segment>() { new Segment(0, fullString.Length)}));
+            unconsumed.Add(tokenFactory(this, null, fullString, Index<OriginalSpace>.Zero, new List<Segment<OriginalSpace>>() { new Segment<OriginalSpace>(Index<OriginalSpace>.Zero, (Offset<OriginalSpace>)fullString.Length) }));
         }
 
         /// <summary>
@@ -307,15 +351,15 @@ namespace IC10_Extender.Highlight
         /// </summary>
         internal void RegisterToken(IToken token)
         {
-            var key = SegmentKey(token.OriginalSegments);
+            var key = SegmentKey(token.Provenance);
             if (!string.IsNullOrEmpty(key))
                 segmentCache[key] = token;
         }
 
-        private static string SegmentKey(IReadOnlyList<Segment> segments)
+        private static string SegmentKey(IReadOnlyList<Segment<OriginalSpace>> segments)
         {
             if (segments == null || segments.Count == 0) return null;
-            return string.Join("|", segments.Select(s => $"{s.StartIndex}:{s.Length}"));
+            return string.Join("|", segments.Select(s => $"{s.Start}:{s.Length}"));
         }
 
         protected void UpdateTo(List<T> unconsumed = null, List<IToken> consumed = null)
@@ -323,49 +367,77 @@ namespace IC10_Extender.Highlight
             if (unconsumed != null)
             {
                 this.unconsumed.Clear();
-                this.unconsumed.AddRange(unconsumed.OrderBy(t => t.StartIndex).ToList());
+                this.unconsumed.AddRange(unconsumed.OrderBy(t => t.Start).ToList());
             }
 
             if (consumed != null)
             {
                 this.consumed.Clear();
-                this.consumed.AddRange(consumed.OrderBy(t => t.StartIndex).ToList());
+                this.consumed.AddRange(consumed.OrderBy(t => t.Start).ToList());
             }
         }
 
         protected void AddConsumed(params IToken[] tokens)
         {
             consumed.AddRange(tokens);
-            consumed.Sort((a, b) => a.StartIndex.CompareTo(b.StartIndex));
+            consumed.Sort((a, b) => a.Start.CompareTo(b.Start));
         }
 
         protected void AddUnconsumed(params T[] tokens)
         {
             unconsumed.AddRange(tokens);
-            unconsumed.Sort((a, b) => a.StartIndex.CompareTo(b.StartIndex));
+            unconsumed.Sort((a, b) => a.Start.CompareTo(b.Start));
         }
 
         /// <summary>
-        /// Recomputes <see cref="TokenBase.AdjustedStartIndex"/> for all tokens (mapped and virtual
-        /// roots) based on <see cref="TokenBase.StartIndex"/> order. Virtual sub-nodes are not
+        /// Recomputes <see cref="TokenBase.AdjustedStart"/> for all tokens (mapped and virtual
+        /// roots) based on <see cref="TokenBase.Start"/> order. Virtual sub-nodes are not
         /// present in either collection and are not numbered directly; they delegate to their root.
         /// </summary>
         protected void ReNumber()
         {
-            int index = 0;
-            var sorted = unconsumed.Cast<IToken>().Concat(consumed).OrderBy(t => t.StartIndex).ToList();
+            var index = Index<AdjustedSpace>.Zero;
+            var sorted = unconsumed.Cast<IToken>().Concat(consumed).OrderBy(t => t.Start).ToList();
             foreach (IToken token in sorted)
             {
-                if (token is TokenBase mapped) { 
-                    mapped.AdjustedStartIndex = index;
-                    index += mapped.Length;
+                if (token is TokenBase mapped) {
+                    mapped.AdjustedStart = index;
+                    index = index + mapped.Length.In<AdjustedSpace>();
                 }
                 if (token is VirtualTokenBase virtualRoot)
                 {
-                    virtualRoot.AdjustedStartIndex = index;
-                    index += virtualRoot.Length;
+                    virtualRoot.AdjustedStart = index;
+                    index = index + virtualRoot.Length.In<AdjustedSpace>();
                 }
             }
+        }
+
+        /// <summary>
+        /// Character counts correspond one-to-one between a token's text and the spaces derived from
+        /// it, so an extent is the same magnitude in each.
+        /// </summary>
+        protected static Offset<TextSpace> AsText(Offset<OriginalSpace> extent) => (Offset<TextSpace>)extent.Value;
+        protected static Offset<OriginalSpace> AsOriginal(Offset<TextSpace> extent) => (Offset<OriginalSpace>)extent.Value;
+        protected static Offset<AdjustedSpace> AsAdjusted(Offset<TextSpace> extent) => (Offset<AdjustedSpace>)extent.Value;
+        protected static Offset<TextSpace> AsText(Offset<AdjustedSpace> extent) => (Offset<TextSpace>)extent.Value;
+
+        protected static void GuardWithinText(Segment<TextSpace> range, Offset<TextSpace> textLength)
+        {
+            if (range.Start < Index<TextSpace>.Zero || range.End > Index<TextSpace>.Zero + textLength)
+                throw new ArgumentOutOfRangeException(
+                    nameof(range),
+                    $"Text range {range} lies outside this token (length {textLength}).");
+        }
+
+        /// <summary>
+        /// Rejects layout-space mapping for a token that has no layout position.
+        /// </summary>
+        protected static void GuardPositioned(Index<AdjustedSpace> adjustedStart)
+        {
+            if (!adjustedStart.IsResolved)
+                throw new InvalidOperationException(
+                    "This token has no position in the layout string, so it cannot be mapped to or " +
+                    "from adjusted space. It has been removed, or its root has not been numbered.");
         }
 
         protected void GuardTokenized()
@@ -388,18 +460,46 @@ namespace IC10_Extender.Highlight
             return new Regex(pattern, RegexOptions.ExplicitCapture);
         }
 
-        protected bool Search<Type>(
+        /// <summary>
+        /// One token's contribution to a match: the matched text, the token it came from, and where
+        /// within that token's text it starts. The offset is what lets <see cref="BuildToken"/> ask
+        /// the token to map the range, rather than inferring a position from lengths.
+        /// </summary>
+        protected readonly struct MatchFragment<TToken> where TToken : IToken
+        {
+            public readonly string Text;
+            public readonly TToken Token;
+            public readonly Index<TextSpace> At;
+
+            public MatchFragment(string text, TToken token, Index<TextSpace> at)
+            {
+                Text = text;
+                Token = token;
+                At = at;
+            }
+
+            public Segment<TextSpace> Range => At.Spanning(Text.Length);
+        }
+
+        /// <summary>
+        /// <paramref name="startAt"/> is an offset into the concatenation of <paramref name="domain"/>,
+        /// so <typeparamref name="TSpace"/> is whichever space that concatenation defines:
+        /// <see cref="RemainderSpace"/> for the unconsumed domain used by <see cref="First"/>,
+        /// <see cref="AdjustedSpace"/> for the live domain used by <see cref="Locate"/>.
+        /// <paramref name="index"/> is a list index into <paramref name="domain"/>, not a position.
+        /// </summary>
+        protected bool Search<Type, TSpace>(
             List<Type> domain,
             string token,
             int index,
-            int startAt,
+            Index<TSpace> startAt,
             bool containsConsumed,
             bool useTokenBounds,
             bool inSpan,
-            out int resultStartIndex,
-            out List<Tuple<string, Type>> results
+            out List<MatchFragment<Type>> results
         )
             where Type : IToken
+            where TSpace : ICoordinateSpace
         {
             Log.Debug($"Search(token:\"{token}\", index:{index}, startAt:{startAt}, inSpan:{inSpan}");
 
@@ -408,8 +508,7 @@ namespace IC10_Extender.Highlight
             if (token == null) throw new ArgumentNullException(nameof(token));
             if (string.IsNullOrEmpty(token))
             {
-                results = new List<Tuple<string, Type>>();
-                resultStartIndex = -1;
+                results = new List<MatchFragment<Type>>();
                 return false;
             }
 
@@ -417,22 +516,46 @@ namespace IC10_Extender.Highlight
             if (index >= domain.Count) //end of list, hard fail
             {
                 Log.Debug("End of list, hard fail");
-                results = new List<Tuple<string, Type>>();
-                resultStartIndex = -1;
+                results = new List<MatchFragment<Type>>();
                 return false;
             }
 
-            if (startAt < 0) throw new ArgumentOutOfRangeException(nameof(startAt), "Cannot be negative");
+            if (startAt < Index<TSpace>.Zero) throw new ArgumentOutOfRangeException(nameof(startAt), "Cannot be negative");
 
-            if (startAt > 0)
+            var searchFrom = Offset<TextSpace>.Zero;
+            if (startAt > Index<TSpace>.Zero)
             {
-                var startToken = domain.Where(t => t.StartIndex < startAt).Last();
-                if (index < startToken.StartIndex)
+                // startAt is an offset into the concatenation of domain, so accumulate extents to
+                // find which entry holds it and where within that entry's text it falls.
+                var cursor = Index<TSpace>.Zero;
+                var startTokenIndex = domain.Count;
+                var withinToken = Offset<TSpace>.Zero;
+                for (int i = 0; i < domain.Count; i++)
+                {
+                    var end = cursor + domain[i].Length.In<TSpace>();
+                    if (startAt < end)
+                    {
+                        startTokenIndex = i;
+                        withinToken = startAt - cursor;
+                        break;
+                    }
+                    cursor = end;
+                }
+
+                if (startTokenIndex >= domain.Count)
+                {
+                    Log.Debug("startAt is past the end of the domain");
+                    results = new List<MatchFragment<Type>>();
+                    return false;
+                }
+
+                if (index < startTokenIndex)
                 {
                     Log.Debug($"Seeking to {startAt}");
-                    return Search(domain, token, startToken.StartIndex, startAt, containsConsumed, useTokenBounds, inSpan, out resultStartIndex, out results);
+                    return Search(domain, token, startTokenIndex, startAt, containsConsumed, useTokenBounds, inSpan, out results);
                 }
-                startAt = startAt > domain[index].StartIndex ? startAt - startToken.StartIndex : 0;
+
+                if (index == startTokenIndex) searchFrom = withinToken.In<TextSpace>();
             }
 
             if(containsConsumed && consumed.Contains(domain[index]))
@@ -441,15 +564,14 @@ namespace IC10_Extender.Highlight
                 { 
                     //continue to next non-consumed token, since we're in a span and consumed tokens can't be part of a span match
                     Log.Debug("In span and token is consumed, skipping to next non-consumed token");
-                    return Search(domain, token, index + 1, startAt, containsConsumed, useTokenBounds, inSpan, out resultStartIndex, out results);
+                    return Search(domain, token, index + 1, startAt, containsConsumed, useTokenBounds, inSpan, out results);
                 }
 
                 if (domain[index].Text == token)
                 {
                     //exact match, return immediately with this token as the only result
                     Log.Debug("Exact match with consumed token, returning immediately");
-                    results = new List<Tuple<string, Type>>() { new Tuple<string, Type>(domain[index].Text, domain[index]) };
-                    resultStartIndex = domain[index].StartIndex;
+                    results = new List<MatchFragment<Type>>() { new MatchFragment<Type>(domain[index].Text, domain[index], Index<TextSpace>.Zero) };
                     return true;
                 }
 
@@ -457,12 +579,12 @@ namespace IC10_Extender.Highlight
                 // substring matches since they cannot be restructured by Split() or Remove()
                 // without breaking invariants.
                 Log.Debug("Consumed token is not an exact match, skipping");
-                return Search(domain, token, index + 1, startAt, containsConsumed, useTokenBounds, inSpan, out resultStartIndex, out results);
+                return Search(domain, token, index + 1, startAt, containsConsumed, useTokenBounds, inSpan, out results);
             }
 
             var pattern = Compile(token, useTokenBounds && !inSpan, useTokenBounds);
 
-            for (var result = pattern.Match(domain[index].Text, startAt); result.Success; result = pattern.Match(domain[index].Text, result.Index + 1))
+            for (var result = pattern.Match(domain[index].Text, searchFrom.Value); result.Success; result = pattern.Match(domain[index].Text, result.Index + 1))
             {
                 var match = result.Groups["match"];
 
@@ -473,8 +595,7 @@ namespace IC10_Extender.Highlight
                     if (inSpan) //then not a contiguous match, return false
                     {
                         Log.Debug("Not a contiguous match, returning false");
-                        results = new List<Tuple<string, Type>>();
-                        resultStartIndex = -1;
+                        results = new List<MatchFragment<Type>>();
                         return false;
                     }
 
@@ -484,21 +605,19 @@ namespace IC10_Extender.Highlight
                 if (match.Length == token.Length) // full match
                 {
                     Log.Debug("Full match");
-                    results = new List<Tuple<string, Type>>() { new Tuple<string, Type>(match.Value, domain[index]) };
-                    resultStartIndex = domain[index].StartIndex + match.Index;
+                    results = new List<MatchFragment<Type>>() { new MatchFragment<Type>(match.Value, domain[index], (Index<TextSpace>)match.Index) };
                     return true;
                 }
 
                 // else partial match only
                 Log.Debug("Partial match only");
-                if (match.Index + match.Length != domain[index].Length) //does not run up to end
+                if (match.Index + match.Length != domain[index].Length.Value) //does not run up to end
                 {
                     Log.Debug("Does not run to end of token");
                     if (inSpan) // partial match ends without continuing to next token. Return span failure
                     {
                         Log.Debug("Partial match ends without continuing to next token");
-                        results = new List<Tuple<string, Type>>();
-                        resultStartIndex = -1;
+                        results = new List<MatchFragment<Type>>();
                         return false;
                     }
                     else // partial match ends, but since not in span, we can continue to next potential match
@@ -510,12 +629,11 @@ namespace IC10_Extender.Highlight
 
                 //else runs up to end, recurse to next token, starting span
                 Log.Debug("Runs up to end of token, starting span");
-                var spanSuccess = Search(domain, token.Substring(match.Length), index + 1, startAt, containsConsumed, useTokenBounds, true, out resultStartIndex, out results);
+                var spanSuccess = Search(domain, token.Substring(match.Length), index + 1, startAt, containsConsumed, useTokenBounds, true, out results);
                 if (spanSuccess)
                 {
                     Log.Debug("Span successful");
-                    results.Add(new Tuple<string, Type>(match.Value, domain[index]));
-                    resultStartIndex = domain[index].StartIndex + match.Index; //override with earlier start index
+                    results.Add(new MatchFragment<Type>(match.Value, domain[index], (Index<TextSpace>)match.Index));
                     return true;
                 }
 
@@ -526,74 +644,104 @@ namespace IC10_Extender.Highlight
 
             //potential matches exhausted, recursing on next token
             Log.Debug("Exhausted potential matches in token. Recursing on next token");
-            return Search(domain, token, index + 1, startAt, containsConsumed, useTokenBounds, false, out resultStartIndex, out results);
+            return Search(domain, token, index + 1, startAt, containsConsumed, useTokenBounds, false, out results);
         }
 
-        protected T BuildToken(string token, int resultStartIndex, List<Tuple<string, T>> results)
+        protected T BuildToken(string token, List<MatchFragment<T>> results)
         {
-            var segments = new List<Segment>(results.Count);
-            foreach (var tuple in results)
+            var segments = new List<Segment<OriginalSpace>>(results.Count);
+            foreach (var fragment in results)
             {
-                (string match, T t) = tuple;
-                int offsetInToken = t.Length - match.Length;
-                segments.Add(new Segment(t.StartIndex + offsetInToken, match.Length));
-                if (t.Text == match) t.Remove();
-                else t.Split(match)
-                        .First(frag => frag.Text == match)
+                // Ask the token to map its own text range. A flat offset cannot express a match that
+                // straddles a gap between disjoint provenance segments.
+                segments.AddRange(fragment.Token.MapToOriginal(fragment.Range));
+
+                if (fragment.Token.Text == fragment.Text) fragment.Token.Remove();
+                else fragment.Token.Split(fragment.Text)
+                        .First(frag => frag.Text == fragment.Text)
                         .Remove();
             }
-            var result = tokenFactory(this, null, token, resultStartIndex, segments);
+            var result = tokenFactory(this, null, token, segments[0].Start, segments);
             AddUnconsumed(result);
             return result;
         }
 
-        public T First(string token, int startAt = 0, bool useTokenBounds = true)
+        public T First(string token, Index<RemainderSpace> startAt = default, bool useTokenBounds = true)
         {
             GuardTokenized();
 
-            if (Search(unconsumed, token, 0, startAt, false, useTokenBounds, false, out var resultStartIndex, out var results))
+            if (Search(unconsumed, token, 0, startAt, false, useTokenBounds, false, out var results))
             {
                 results.Reverse();
-                return BuildToken(token, resultStartIndex, results);
+                return BuildToken(token, results);
             }
             return default;
         }
 
-        public IToken Locate(string token, int startAt = 0, bool useTokenBounds = true)
+        public IToken Locate(string token, Index<AdjustedSpace> startAt = default, bool useTokenBounds = true)
         {
             GuardTokenized();
 
+            // Not filtered by startAt: Search resolves it by walking the domain, and removing
+            // leading entries would shift the concatenation that startAt is an offset into.
             var allByPosition = consumed.Concat(unconsumed.Cast<IToken>())
-                .Where(t => t.StartIndex >= startAt)
-                .OrderBy(t => t.StartIndex)
+                .OrderBy(t => t.Start)
                 .ToList();
 
-            if (Search(allByPosition, token, 0, startAt, true, useTokenBounds, false, out var resultStartIndex, out var results))
+            if (Search(allByPosition, token, 0, startAt, true, useTokenBounds, false, out var results))
             {
                 results.Reverse();
-                var firstMatch = results.FirstOrDefault();
-                if (firstMatch != null && consumed.Contains(firstMatch.Item2) && firstMatch.Item1 == token)
+                if (results.Count == 0) return default;
+
+                var firstMatch = results[0];
+                if (consumed.Contains(firstMatch.Token) && firstMatch.Text == token)
                 {
-                    return firstMatch.Item2;
+                    return firstMatch.Token;
                 }
-                if (results.Count > 0)
-                {
-                    return BuildToken(token, resultStartIndex, results.Select(t => new Tuple<string, T>(t.Item1, (T)t.Item2)).ToList());
-                }
+                return BuildToken(token, results
+                    .Select(f => new MatchFragment<T>(f.Text, (T)f.Token, f.At))
+                    .ToList());
             }
             return default;
         }
 
-        public IToken AtIndex(int index)
+        public IToken TokenAt(Index<OriginalSpace> index)
         {
             return unconsumed.Cast<IToken>().Concat(consumed)
-                .FirstOrDefault(t => t.OriginalSegments.Any(s => s.StartIndex <= index && index < s.EndIndex));
+                .FirstOrDefault(t => t.Provenance.Any(s => s.Contains(index)));
         }
 
-        public IToken AtAdjustedIndex(int index)
+        public Index<AdjustedSpace> MapToAdjusted(Index<OriginalSpace> index)
+        {
+            var token = TokenAt(index);
+            if (token == null)
+            {
+                // In the source but covered by nothing live means the region was removed. Removed
+                // tokens leave both collections, so TokenAt cannot report them directly.
+                return Original.Bounds.Contains(index)
+                    ? Index<AdjustedSpace>.Removed
+                    : Index<AdjustedSpace>.Missing;
+            }
+
+            if (token is VirtualTokenBase) return Index<AdjustedSpace>.Virtual;
+
+            return token.MapToAdjusted(token.MapToText(index.Spanning(1))).Start;
+        }
+
+        public Index<OriginalSpace> MapToOriginal(Index<AdjustedSpace> index)
+        {
+            var token = TokenAt(index);
+            if (token == null) return Index<OriginalSpace>.Missing;
+            if (token is VirtualTokenBase) return Index<OriginalSpace>.Virtual;
+
+            return token.MapToOriginal(token.MapToText(index.Spanning(1)))[0].Start;
+        }
+
+        public IToken TokenAt(Index<AdjustedSpace> index)
         {
             return unconsumed.Cast<IToken>().Concat(consumed)
-                .FirstOrDefault(t => t.AdjustedStartIndex <= index && index < t.AdjustedStartIndex + t.Length);
+                .FirstOrDefault(t => t.AdjustedStart <= index
+                                  && index < t.AdjustedStart + t.Length.In<AdjustedSpace>());
         }
 
         /// <summary>
@@ -606,13 +754,14 @@ namespace IC10_Extender.Highlight
         /// <exception cref="ArgumentNullException"></exception>
         /// <exception cref="ArgumentException"></exception>
         /// <exception cref="InvalidOperationException"></exception>
-        public IToken FromSegments(IEnumerable<Segment> segments)
+        public IToken FromSegments(IEnumerable<Segment<OriginalSpace>> segments)
         {
+            GuardTokenized();
             if (segments == null) throw new ArgumentNullException(nameof(segments));
 
-            var segList = segments.OrderBy(s => s.StartIndex).ToList();
+            var segList = segments.OrderBy(s => s.Start).ToList();
             if (segList.Count == 0) throw new ArgumentException("Segments cannot be empty", nameof(segments));
-            if (segList.Any(s => s.Length == 0)) throw new ArgumentException($"Segments cannot have zero length: {segList.First(s => s.Length == 0)}", nameof(segments));
+            if (segList.Any(s => s.Length == Offset<OriginalSpace>.Zero)) throw new ArgumentException($"Segments cannot have zero length: {segList.First(s => s.Length == Offset<OriginalSpace>.Zero)}", nameof(segments));
 
             // consult the cache
             var key = SegmentKey(segList);
@@ -620,12 +769,12 @@ namespace IC10_Extender.Highlight
                 return cached;
 
             // fallback to building the token
-            Dictionary<T, List<Segment>> mappings = new Dictionary<T, List<Segment>>();
+            Dictionary<T, List<Segment<OriginalSpace>>> mappings = new Dictionary<T, List<Segment<OriginalSpace>>>();
             for (int i = 0; i < segList.Count; i++)
             {
                 var segment = segList[i];
 
-                if (segment.StartIndex < 0 || segment.EndIndex > Original.Length)
+                if (!Original.Bounds.Contains(segment))
                     throw new ArgumentException(
                         $"Segment {segment} is out of bounds of the original string (length {Original.Length}).",
                         nameof(segments));
@@ -633,23 +782,23 @@ namespace IC10_Extender.Highlight
                 if (i > 0)
                 {
                     var prev = segList[i - 1];
-                    if (prev.EndIndex > segment.StartIndex)
+                    if (prev.Overlaps(segment))
                         throw new ArgumentException(
                             $"Segments {prev} and {segment} overlap.",
                             nameof(segments));
                 }
 
                 var covering = unconsumed.FirstOrDefault(
-                    t => t.OriginalSegments.Any(
-                        s => s.StartIndex <= segment.StartIndex && s.EndIndex >= segment.EndIndex
+                    t => t.Provenance.Any(
+                        s => s.Contains(segment)
                     )
                 );
 
                 if (covering == null)
                 {
                     if (consumed.Any(
-                            t => t.OriginalSegments.Any(
-                                s => s.StartIndex <= segment.StartIndex && s.EndIndex >= segment.EndIndex
+                            t => t.Provenance.Any(
+                                s => s.Contains(segment)
                             )
                         ))
                         throw new InvalidOperationException(
@@ -660,14 +809,14 @@ namespace IC10_Extender.Highlight
                             $"Segment {segment} is not covered by any token. It may have been removed.");
                 }
 
-                if (!mappings.ContainsKey(covering)) mappings[covering] = new List<Segment>();
+                if (!mappings.ContainsKey(covering)) mappings[covering] = new List<Segment<OriginalSpace>>();
                 mappings[covering].Add(segment);
             }
 
             foreach (var kvp in mappings)
             {
                 var token = kvp.Key;
-                var fragments = kvp.Value.Select(s => Original.Substring(s.StartIndex, s.Length)).ToArray();
+                var fragments = kvp.Value.Select(s => Original.Substring(s).Value).ToArray();
                 foreach (var fragment in token.Split(fragments))
                 {
                     if (fragments.Any(s => s == fragment.Text)) fragment.Remove();
@@ -677,8 +826,8 @@ namespace IC10_Extender.Highlight
             var result = tokenFactory(
                 this,
                 null,
-                string.Join("", segList.Select(seg => Original.Substring(seg.StartIndex, seg.Length))),
-                segList.First().StartIndex,
+                string.Join("", segList.Select(seg => Original.Substring(seg.Start.Value, seg.Length.Value))),
+                segList.First().Start,
                 segList
             );
             AddUnconsumed(result);
@@ -699,6 +848,8 @@ namespace IC10_Extender.Highlight
             AddConsumed(newTokens.ToArray());
             ReNumber();
 
+            _tokenized = true;
+
             return Consumed;
         }
 
@@ -706,7 +857,7 @@ namespace IC10_Extender.Highlight
         {
             var sorted = tokens.ToList();
             StringBuilder sb = new StringBuilder();
-            foreach (T token in sorted)
+            foreach (IToken token in sorted)
             {
                 sb.Append(formatter(token));
             }
@@ -715,15 +866,22 @@ namespace IC10_Extender.Highlight
 
         public string ToString(Func<IToken, string> formatter)
         {
-            return ToString(unconsumed.Cast<IToken>().Concat(consumed).OrderBy(t => t.StartIndex).ToList(), formatter);
+            return ToString(unconsumed.Cast<IToken>().Concat(consumed).OrderBy(t => t.Start).ToList(), formatter);
         }
 
         public override string ToString()
         {
-            return ToString(RawFormat);
+            return Render;
         }
 
-        public string Remainder => ToString(unconsumed.Cast<IToken>().ToList(), t => t.Text);
+        /// <summary>
+        /// The layout string: every live token, consumed and unconsumed, in <see cref="IToken.Start"/>
+        /// order. The untyped form is <see cref="ToString()"/>.
+        /// </summary>
+        public CoordString<AdjustedSpace> Render => ToString(RawFormat).In<AdjustedSpace>();
+
+        public CoordString<RemainderSpace> Remainder =>
+            ToString(unconsumed.Cast<IToken>().ToList(), t => t.Text).In<RemainderSpace>();
 
         public class TokenBase : IToken<T, TVirtual>
         {
@@ -731,42 +889,41 @@ namespace IC10_Extender.Highlight
             /// <summary>
             /// The position of this token in the <em>original</em> string. Never changes after
             /// construction. For span-tokens covering multiple original ranges, this is the
-            /// start of the first segment. Use <see cref="OriginalSegments"/> for complete coverage.
+            /// start of the first segment. Use <see cref="Provenance"/> for complete coverage.
             /// </summary>
-            public int StartIndex { get; private set; }
+            public Index<OriginalSpace> Start { get; private set; }
 
-            private int adjustedStartIndex;
+            private Index<AdjustedSpace> adjustedStart;
 
             /// <summary>
             /// The position of this token in the contiguous display string. Recomputed by
             /// <see cref="TokenizedString{T,TVirtual}.ReNumber"/> after every mutating operation.
             /// </summary>
-            public int AdjustedStartIndex
+            public Index<AdjustedSpace> AdjustedStart
             {
                 get
                 {
-                    GuardNotRemoved();
-                    return adjustedStartIndex;
+                    return removed ? Index<AdjustedSpace>.Removed : adjustedStart;
                 }
                 set
                 {
                     GuardNotRemoved();
-                    adjustedStartIndex = value;
+                    adjustedStart = value;
                 }
             }
 
-            public int Length { get; private set; }
+            public Offset<TextSpace> Length { get; private set; }
 
             /// <summary>
             /// The text content of this token. Immutable after construction for mapped tokens.
             /// </summary>
-            public string Text { get; private set; }
+            public CoordString<TextSpace> Text { get; private set; }
 
             /// <summary>
             /// The original-string segments this token covers. For simple tokens always a single
             /// segment. For span-tokens one entry per source fragment.
             /// </summary>
-            public IReadOnlyList<Segment> OriginalSegments { get; }
+            public IReadOnlyList<Segment<OriginalSpace>> Provenance { get; }
 
             private bool removed = false;
             public bool IsRemoved => removed;
@@ -797,28 +954,30 @@ namespace IC10_Extender.Highlight
             IToken[] IToken.Leaves => Leaves.Cast<IToken>().ToArray();
             public IToken Parent { get; private set; }
 
-            public TokenBase(TokenizedString<T, TVirtual> source, IToken parent, string text, int startIndex, IEnumerable<Segment> segments)
+            public TokenBase(TokenizedString<T, TVirtual> source, IToken parent, string text, Index<OriginalSpace> start, IEnumerable<Segment<OriginalSpace>> segments)
             {
                 Source = source ?? throw new ArgumentNullException(nameof(source));
                 Parent = parent;
-                Text = text;
-                Length = text.Length;
+                Text = text.In<TextSpace>();
+                Length = (Offset<TextSpace>)text.Length;
 
                 var segList = segments != null
-                    ? segments.OrderBy(s => s.StartIndex).ToList()
-                    : new List<Segment> { new Segment(startIndex, text.Length) };
+                    ? segments.OrderBy(s => s.Start).ToList()
+                    : new List<Segment<OriginalSpace>> { new Segment<OriginalSpace>(start, (Offset<OriginalSpace>)text.Length) };
 
-                OriginalSegments = segList.AsReadOnly();
-                StartIndex = segList[0].StartIndex;
-                adjustedStartIndex = StartIndex;
+                Provenance = segList.AsReadOnly();
+                Start = segList[0].Start;
+                // Provisional until ReNumber runs. Split does not renumber, so children carry this
+                // until the next mutation that does.
+                adjustedStart = (Index<AdjustedSpace>)Start.Value;
 
                 source.RegisterToken(this as T);
             }
 
             public override string ToString()
             {
-                var segStr = string.Join(",", OriginalSegments.Select(s => s.ToString()));
-                return $"{nameof(TokenBase)}(Source:{Source.GetType().Name}, Text:\"{Text}\", StartIndex:{StartIndex}, AdjustedStartIndex:{AdjustedStartIndex}, Length:{Length}, Segments:[{segStr}])";
+                var segStr = string.Join(",", Provenance.Select(s => s.ToString()));
+                return $"{nameof(TokenBase)}(Source:{Source.GetType().Name}, Text:\"{Text}\", Start:{Start}, AdjustedStart:{AdjustedStart}, Length:{Length}, Segments:[{segStr}])";
             }
 
             /// <summary>
@@ -864,32 +1023,84 @@ namespace IC10_Extender.Highlight
             }
 
             /// <summary>
-            /// Returns the sub-segments covering [textOffset, textOffset+length) within this
-            /// token's Text, mapping through OriginalSegments for span-tokens.
+            /// Projects a range of this token's own text onto the original-string ranges it covers.
+            /// Returns more than one segment when this token's <see cref="Provenance"/> are
+            /// disjoint and the range straddles a gap.
             /// </summary>
-            protected List<Segment> SliceSegments(int textOffset, int length)
+            public IReadOnlyList<Segment<OriginalSpace>> MapToOriginal(Segment<TextSpace> range)
             {
-                var result = new List<Segment>();
-                int remaining = length;
-                int cursor = 0;
+                GuardWithinText(range, Length);
 
-                foreach (var seg in OriginalSegments)
+                var result = new List<Segment<OriginalSpace>>();
+                var remaining = range.Length;
+                var cursor = Index<TextSpace>.Zero;
+
+                foreach (var seg in Provenance)
                 {
-                    int segEnd = cursor + seg.Length;
-                    int overlapStart = Math.Max(cursor, textOffset);
-                    int overlapEnd = Math.Min(segEnd, textOffset + length);
+                    var segEnd = cursor + AsText(seg.Length);
+                    var overlapStart = cursor > range.Start ? cursor : range.Start;
+                    var overlapEnd = segEnd < range.End ? segEnd : range.End;
 
                     if (overlapStart < overlapEnd)
                     {
-                        int offsetInSeg = overlapStart - cursor;
-                        result.Add(new Segment(seg.StartIndex + offsetInSeg, overlapEnd - overlapStart));
-                        remaining -= overlapEnd - overlapStart;
-                        if (remaining <= 0) break;
+                        var covered = overlapEnd - overlapStart;
+                        result.Add(new Segment<OriginalSpace>(
+                            seg.Start + AsOriginal(overlapStart - cursor),
+                            AsOriginal(covered)));
+                        remaining = remaining - covered;
+                        if (remaining <= Offset<TextSpace>.Zero) break;
                     }
 
                     cursor = segEnd;
                 }
 
+                return result;
+            }
+
+            public Segment<TextSpace> MapToText(Segment<OriginalSpace> range)
+            {
+                var cursor = Index<TextSpace>.Zero;
+                var covered = Offset<TextSpace>.Zero;
+                Index<TextSpace>? start = null;
+
+                foreach (var seg in Provenance)
+                {
+                    var overlapStart = seg.Start > range.Start ? seg.Start : range.Start;
+                    var overlapEnd = seg.End < range.End ? seg.End : range.End;
+
+                    if (overlapStart < overlapEnd)
+                    {
+                        if (!start.HasValue) start = cursor + AsText(overlapStart - seg.Start);
+                        covered = covered + AsText(overlapEnd - overlapStart);
+                    }
+
+                    cursor = cursor + AsText(seg.Length);
+                }
+
+                if (!start.HasValue || covered != AsText(range.Length))
+                    throw new ArgumentOutOfRangeException(
+                        nameof(range),
+                        $"Original range {range} is not fully covered by this token ({covered} of {range.Length} characters).");
+
+                return new Segment<TextSpace>(start.Value, covered);
+            }
+
+            public Segment<AdjustedSpace> MapToAdjusted(Segment<TextSpace> range)
+            {
+                GuardPositioned(AdjustedStart);
+                GuardWithinText(range, Length);
+                return new Segment<AdjustedSpace>(
+                    (Index<AdjustedSpace>)AdjustedStart + AsAdjusted(range.Start - Index<TextSpace>.Zero),
+                    AsAdjusted(range.Length));
+            }
+
+            public Segment<TextSpace> MapToText(Segment<AdjustedSpace> range)
+            {
+                GuardPositioned(AdjustedStart);
+                var result = new Segment<TextSpace>(
+                    Index<TextSpace>.Zero + AsText(range.Start - (Index<AdjustedSpace>)AdjustedStart),
+                    AsText(range.Length));
+                GuardWithinText(result, Length);
                 return result;
             }
 
@@ -913,20 +1124,20 @@ namespace IC10_Extender.Highlight
 
                     if (fragmentIndex > 0)
                     {
-                        int preStart = StartIndex + consumedLength;
-                        newTokens.Add(Source.tokenFactory(Source, this as T, workingText.Substring(0, fragmentIndex), preStart, SliceSegments(consumedLength, fragmentIndex)));
+                        var preStart = Start + ((Offset<TextSpace>)consumedLength).In<OriginalSpace>();
+                        newTokens.Add(Source.tokenFactory(Source, this as T, workingText.Substring(0, fragmentIndex), preStart, MapToOriginal(new Segment<TextSpace>((Index<TextSpace>)consumedLength, (Offset<TextSpace>)fragmentIndex))));
                     }
 
-                    int fragStart = StartIndex + consumedLength + fragmentIndex;
-                    newTokens.Add(Source.tokenFactory(Source, this as T, fragment, fragStart, SliceSegments(consumedLength + fragmentIndex, fragment.Length)));
+                    var fragStart = Start + ((Offset<TextSpace>)(consumedLength + fragmentIndex)).In<OriginalSpace>();
+                    newTokens.Add(Source.tokenFactory(Source, this as T, fragment, fragStart, MapToOriginal(new Segment<TextSpace>((Index<TextSpace>)(consumedLength + fragmentIndex), (Offset<TextSpace>)fragment.Length))));
                     consumedLength += fragmentIndex + fragment.Length;
                     workingText = workingText.Substring(fragmentIndex + fragment.Length);
                 }
 
                 if (workingText.Length > 0)
                 {
-                    int tailStart = StartIndex + consumedLength;
-                    newTokens.Add(Source.tokenFactory(Source, this as T, workingText, tailStart, SliceSegments(consumedLength, workingText.Length)));
+                    var tailStart = Start + ((Offset<TextSpace>)consumedLength).In<OriginalSpace>();
+                    newTokens.Add(Source.tokenFactory(Source, this as T, workingText, tailStart, MapToOriginal(new Segment<TextSpace>((Index<TextSpace>)consumedLength, (Offset<TextSpace>)workingText.Length))));
                 }
 
                 var arr = newTokens.ToArray();
@@ -952,8 +1163,12 @@ namespace IC10_Extender.Highlight
             /// <summary>
             /// Replaces this mapped token with a virtual root token. The mapped token is removed
             /// from source collections. The virtual root is added to consumed, inheriting
-            /// <see cref="StartIndex"/> and <see cref="OriginalSegments"/> from this token for
+            /// <see cref="Start"/> and <see cref="Provenance"/> from this token for
             /// positional lookup. The virtual root and all children are inherently considered consumed.
+            /// <para>Structural, so an empty replacement is rejected: it would leave a zero-length
+            /// virtual root in the consumed collection. Call <see cref="Remove"/> for that. This is
+            /// the opposite of <see cref="VirtualTokenBase.Replace"/>, which edits a leaf's content
+            /// and does accept an empty string.</para>
             /// </summary>
             public TVirtual Replace(string replacement)
             {
@@ -963,13 +1178,14 @@ namespace IC10_Extender.Highlight
 
                 var virtualToken = Source.virtualFactory(Source, this as T, replacement);
                 // Remove this mapped token and add the virtual root to consumed so that
-                // Search/Locate can find it via exact-match and AtIndex can resolve it.
+                // Search/Locate can find it via exact-match and TokenAt can resolve it.
                 var consumedList = Source.consumed.Where(t => !ReferenceEquals(t, this)).ToList();
                 var unconsumedList = Source.unconsumed.Where(t => !ReferenceEquals(t, this)).ToList();
                 Source.UpdateTo(unconsumedList, consumedList);
                 removed = true;
 
-                Source.AddConsumed(virtualToken as T);
+                // Not `as T`: TVirtual is unrelated to T, so it compiles but yields null.
+                Source.AddConsumed(virtualToken);
                 Source.ReNumber();
                 return virtualToken;
             }
@@ -991,16 +1207,16 @@ namespace IC10_Extender.Highlight
         /// <summary>
         /// A virtual token produced by <see cref="TokenBase.Replace"/>. Virtual tokens have no
         /// character-level original-string mapping but retain the replaced token's
-        /// <see cref="OriginalSegments"/> for positional lookup.
+        /// <see cref="Provenance"/> for positional lookup.
         /// <para>
         /// A virtual token is a <em>root</em> when it exists directly in the source string's
         /// <see cref="TokenizedString{T,TVirtual}.consumed"/> collection, or a <em>sub-node</em>
         /// when held within another virtual token's internal child tree.
         /// </para>
         /// <para><b>Text / Length:</b> Computed from live (non-removed) leaf descendants.</para>
-        /// <para><b>StartIndex / AdjustedStartIndex:</b> Sub-nodes delegate to the root's values
+        /// <para><b>Start / AdjustedStart:</b> Sub-nodes delegate to the root's values
         /// since sub-node ordering is positional within <see cref="Children"/>, not by index.
-        /// The <c>AdjustedStartIndex</c> setter throws for sub-nodes.</para>
+        /// The <c>AdjustedStart</c> setter throws for sub-nodes.</para>
         /// </summary>
         public class VirtualTokenBase : IToken<TVirtual, TVirtual>
         {
@@ -1021,45 +1237,48 @@ namespace IC10_Extender.Highlight
             public bool IsRoot => Parent == null;
 
             // Root-only positional state.
-            private readonly int startIndex;
+            private readonly Index<OriginalSpace> start;
 
             /// <summary>
-            /// For root nodes: the original-string position of the replaced mapped token.
-            /// For sub-nodes: delegates to the root's value.
+            /// Where this transform's provenance begins: the original-string position of the mapped
+            /// token that was replaced. Every node in a virtual tree reports the same value because
+            /// the whole tree is one transform of one source region. This is the value's meaning,
+            /// not a delegation shortcut. It does not locate an individual node.
             /// </summary>
-            public int StartIndex
+            public Index<OriginalSpace> Start
             {
                 get
                 {
-                    if (IsRoot) return startIndex;
-                    return Parent.StartIndex;
+                    if (IsRoot) return start;
+                    return Parent.Start;
                 }
             }
 
-            private int adjustedStartIndex;
+            private Index<AdjustedSpace> adjustedStart;
 
             /// <summary>
-            /// For root nodes: the contiguous display-string position, set by
-            /// <see cref="TokenizedString{T,TVirtual}.ReNumber"/>.
-            /// For sub-nodes: delegates to the root's value. The setter throws for sub-nodes.
+            /// Where this transform begins in the layout string, set on the root by
+            /// <see cref="TokenizedString{T,TVirtual}.ReNumber"/>. As with <see cref="Start"/>,
+            /// every node reports the same value because it describes the transform, not the node.
+            /// It is <em>not</em> where a sub-node renders. For that, use
+            /// <see cref="MapToAdjusted"/>, which resolves a node's own position on demand.
+            /// The setter throws for sub-nodes; only roots are numbered.
             /// </summary>
-            public int AdjustedStartIndex
+            public Index<AdjustedSpace> AdjustedStart
             {
                 get
                 {
-                    if (IsRoot)
-                    {
-                        GuardNotRemoved();
-                        return adjustedStartIndex;
-                    }
-                    return Parent.AdjustedStartIndex;
+                    // Before delegating: a removed sub-node must not report its root's position.
+                    if (removed) return Index<AdjustedSpace>.Removed;
+                    if (IsRoot) return adjustedStart;
+                    return Parent.AdjustedStart;
                 }
                 set
                 {
                     if (!IsRoot) throw new InvalidOperationException(
-                        "AdjustedStartIndex cannot be set on virtual sub-nodes. ReNumber operates on root nodes only.");
+                        "AdjustedStart cannot be set on virtual sub-nodes. ReNumber operates on root nodes only.");
                     GuardNotRemoved();
-                    adjustedStartIndex = value;
+                    adjustedStart = value;
                 }
             }
 
@@ -1068,29 +1287,32 @@ namespace IC10_Extender.Highlight
             /// The live text of this node: concatenation of all non-removed leaf descendants.
             /// Returns <see cref="string.Empty"/> if removed or if all leaves are removed.
             /// </summary>
-            public string Text
+            public CoordString<TextSpace> Text
             {
                 get
                 {
-                    if (removed) return string.Empty;
-                    return IsSplit ? string.Join("", LivingChildren.Select(c => c.Text)) : text;
+                    if (removed) return string.Empty.In<TextSpace>();
+                    return (IsSplit ? string.Join("", LivingChildren.Select(c => c.Text.Value)) : text).In<TextSpace>();
                 }
             }
 
             /// <summary>
             /// The number of live (non-removed) characters in this node's subtree.
             /// </summary>
-            public int Length => IsSplit ? LivingChildren.Sum(c => c.Length) : text.Length;
+            public Offset<TextSpace> Length => IsSplit
+                ? (Offset<TextSpace>)LivingChildren.Sum(c => c.Length.Value)
+                : (Offset<TextSpace>)text.Length;
 
-            private IReadOnlyList<Segment> originalSegments;
+            private IReadOnlyList<Segment<OriginalSpace>> originalSegments;
             /// <summary>
-            /// For root nodes: the <see cref="TokenBase.OriginalSegments"/> of the replaced mapped
-            /// token, preserved so that <see cref="TokenizedString{T,TVirtual}.AtIndex"/> can still
-            /// resolve original-string positions to this virtual token. <see cref="Text"/> does not
-            /// correspond to these segments character-for-character.
-            /// For sub-nodes: always empty.
+            /// The <see cref="TokenBase.Provenance"/> of the replaced mapped token, inherited by every
+            /// node in the tree since they are all parts of one transform of one source region, and
+            /// preserved so that <see cref="TokenizedString{T,TVirtual}.TokenAt"/> can still resolve
+            /// original-string positions to this virtual token. <see cref="Text"/> does not correspond
+            /// to these segments character-for-character, which is why <see cref="MapToOriginal"/>
+            /// throws. This answers where the tree came from, not which source character a node is.
             /// </summary>
-            public IReadOnlyList<Segment> OriginalSegments => originalSegments ?? Parent.originalSegments;
+            public IReadOnlyList<Segment<OriginalSpace>> Provenance => originalSegments ?? Parent.originalSegments;
 
             private bool removed = false;
             public bool IsRemoved => removed;
@@ -1115,7 +1337,7 @@ namespace IC10_Extender.Highlight
             public TVirtual[] LivingChildren => children?.Where(c => !c.IsRemoved).ToArray() ?? Array.Empty<TVirtual>();
 
             /// <summary>
-            /// A live recursive view of the non-removed leaf nodes of this subtree — nodes with no
+            /// A live recursive view of the non-removed leaf nodes of this subtree: nodes with no
             /// children of their own that have not been removed. Formatters and display consumers
             /// should iterate this rather than <see cref="Children"/>.
             /// </summary>
@@ -1147,9 +1369,9 @@ namespace IC10_Extender.Highlight
                 mappedParent = original ?? throw new ArgumentNullException(nameof(original));
                 Parent = null;
                 this.text = text;
-                startIndex = original.StartIndex;
-                adjustedStartIndex = original.AdjustedStartIndex;
-                originalSegments = original.OriginalSegments;
+                start = original.Start;
+                adjustedStart = original.AdjustedStart;
+                originalSegments = original.Provenance;
 
                 source.RegisterToken(this as TVirtual);
             }
@@ -1163,9 +1385,9 @@ namespace IC10_Extender.Highlight
                 Source = source ?? throw new ArgumentNullException(nameof(source));
                 Parent = parent ?? throw new ArgumentNullException(nameof(parent));
                 this.text = text;
-                startIndex = parent.StartIndex;
-                originalSegments = parent.OriginalSegments;
-                adjustedStartIndex = -1;
+                start = parent.Start;
+                originalSegments = parent.Provenance;
+                adjustedStart = Index<AdjustedSpace>.Missing;
             }
 
             public override string ToString()
@@ -1176,6 +1398,72 @@ namespace IC10_Extender.Highlight
             protected void GuardNotRemoved()
             {
                 if (removed) throw new InvalidOperationException("Virtual token has been removed");
+            }
+
+            /// <summary>
+            /// Not defined for virtual tokens: replacement text has no character-level correspondence
+            /// to the original. <see cref="Provenance"/> answers the provenance question instead.
+            /// </summary>
+            public IReadOnlyList<Segment<OriginalSpace>> MapToOriginal(Segment<TextSpace> range)
+                => throw new InvalidOperationException(
+                    "Virtual tokens carry replacement text with no character-level mapping to the " +
+                    "original string. Use Provenance for the provenance of this virtual tree.");
+
+            /// <summary>
+            /// Not defined for virtual tokens: replacement text has no character-level correspondence
+            /// to the original. <see cref="Provenance"/> answers the provenance question instead.
+            /// </summary>
+            public Segment<TextSpace> MapToText(Segment<OriginalSpace> range)
+                => throw new InvalidOperationException(
+                    "Virtual tokens carry replacement text with no character-level mapping to the " +
+                    "original string. Use Provenance for the provenance of this virtual tree.");
+
+            public Segment<AdjustedSpace> MapToAdjusted(Segment<TextSpace> range)
+            {
+                GuardPositioned(AdjustedStart);
+                GuardWithinText(range, Length);
+                return new Segment<AdjustedSpace>(
+                    (Index<AdjustedSpace>)AdjustedStart
+                        + AsAdjusted(OffsetWithinRoot() + (range.Start - Index<TextSpace>.Zero)),
+                    AsAdjusted(range.Length));
+            }
+
+            public Segment<TextSpace> MapToText(Segment<AdjustedSpace> range)
+            {
+                GuardPositioned(AdjustedStart);
+                var result = new Segment<TextSpace>(
+                    Index<TextSpace>.Zero
+                        + AsText(range.Start - (Index<AdjustedSpace>)AdjustedStart)
+                        - OffsetWithinRoot(),
+                    AsText(range.Length));
+                GuardWithinText(result, Length);
+                return result;
+            }
+
+            /// <summary>
+            /// This node's position within its root's live text, resolved on demand. Zero for a root.
+            /// Not cached: an edit earlier in the tree invalidates every later node's offset.
+            /// </summary>
+            private Offset<TextSpace> OffsetWithinRoot()
+            {
+                if (IsRoot) return Offset<TextSpace>.Zero;
+
+                var anchor = Leaves.FirstOrDefault();
+                if (anchor == null) throw new InvalidOperationException(
+                    "This virtual node has no live leaves, so it has no position within its root.");
+
+                var node = this;
+                while (!node.IsRoot) node = node.Parent;
+
+                var accumulated = Offset<TextSpace>.Zero;
+                foreach (var leaf in node.Leaves)
+                {
+                    if (ReferenceEquals(leaf, anchor)) return accumulated;
+                    accumulated = accumulated + (Offset<TextSpace>)leaf.Length;
+                }
+
+                throw new InvalidOperationException(
+                    "This virtual node is not reachable from its root's live leaves.");
             }
 
             /// <summary>
@@ -1232,11 +1520,12 @@ namespace IC10_Extender.Highlight
             }
 
             /// <summary>
-            /// This operation is only valid on leaf nodes. Sets this node's internal text.
-            /// throws if removed or not a leaf node.
+            /// Sets this leaf's stored text. Only valid on leaf nodes; throws if removed or split.
+            /// <para>Unlike <see cref="TokenBase.Replace"/>, which is structural and rejects an empty
+            /// replacement, this is content editing and accepts one. A blanked leaf is not a removed
+            /// leaf: it stays in <see cref="Leaves"/>, contributes zero characters, does not trigger
+            /// upward removal propagation, and can be repopulated by calling this again.</para>
             /// </summary>
-            /// <param name="text"></param>
-            /// <returns></returns>
             public TVirtual Replace(string text)
             {
                 GuardNotRemoved();
@@ -1256,7 +1545,8 @@ namespace IC10_Extender.Highlight
             /// </summary>
             public TVirtual Remove()
             {
-                GuardNotRemoved();
+                // Idempotent, matching TokenBase.Remove.
+                if (removed) return this as TVirtual;
                 MarkRemoved();
 
                 if (IsRoot)
@@ -1292,10 +1582,10 @@ namespace IC10_Extender.Highlight
         public TokenString(string fullString)
             : base(
                 fullString,
-                (source, original, text, startIndex, segments) =>
+                (source, original, text, start, segments) =>
                     new Token(
                         source as TokenString ?? throw new ArgumentException("Must be TokenString", nameof(source)),
-                        original, text, startIndex, segments),
+                        original, text, start, segments),
                 (source, original, text) =>
                 {
                     var ts = source as TokenString ?? throw new ArgumentException("Expected TokenString instance", nameof(source));
@@ -1308,8 +1598,8 @@ namespace IC10_Extender.Highlight
 
         public class Token : TokenBase, IToken<Token, VirtualToken>, IToken
         {
-            public Token(TokenString source, Token original, string text, int startIndex, IEnumerable<Segment> segments)
-                : base(source, original, text, startIndex, segments) { }
+            public Token(TokenString source, Token original, string text, Index<OriginalSpace> start, IEnumerable<Segment<OriginalSpace>> segments)
+                : base(source, original, text, start, segments) { }
         }
 
         public class VirtualToken : VirtualTokenBase, IToken<VirtualToken, VirtualToken>, IToken

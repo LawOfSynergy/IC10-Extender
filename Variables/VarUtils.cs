@@ -29,7 +29,7 @@ namespace IC10_Extender.Variables
         {
             return (ctx) =>
             {
-                return WrapConstant(ctx.Token.Text)(ctx);
+                return WrapConstant(ctx.Token.Text.Value)(ctx);
             };
         }
 
@@ -38,7 +38,7 @@ namespace IC10_Extender.Variables
             return (ctx) =>
             {
                 ApplyStyle(ctx, style);
-                return WrapConstant(ctx.Token.Text)(ctx);
+                return WrapConstant(ctx.Token.Text.Value)(ctx);
             };
         }
 
@@ -244,10 +244,10 @@ namespace IC10_Extender.Variables
                         if (!anchor.IsSplit)
                         {
                             var parts = ctx.Line.Split(anchor, drCode.DRPart, ":" + drCode.NetworkPart);
-                            ((IStyledToken)parts[1][0]).TryConsume().TryStyle(Theme.Default.Device);
-                            ((IStyledToken)parts[2][0]).TryConsume().TryStyle(Theme.Default.Device);
-                            ((IStyledToken)parts[1][1]).TryConsume().TryStyle(Theme.Default.Network);
-                            ((IStyledToken)parts[2][1]).TryConsume().TryStyle(Theme.Default.Network);
+                            parts.Original[0].TryConsume().TryStyle(Theme.Default.Device);
+                            parts.Display[0].TryConsume().TryStyle(Theme.Default.Device);
+                            parts.Original[1].TryConsume().TryStyle(Theme.Default.Network);
+                            parts.Display[1].TryConsume().TryStyle(Theme.Default.Network);
                         }
                         else
                         {
@@ -257,8 +257,8 @@ namespace IC10_Extender.Variables
                                 anchor.Children[1].Text == ":" + drCode.NetworkPart
                             )
                             {
-                                ctx.Line.GetTokens(anchor.Children[0], out var devOriginal, out var devDisplay);
-                                ctx.Line.GetTokens(anchor.Children[1], out var netOriginal, out var netDisplay);
+                                var (devOriginal, devDisplay) = ctx.Line.GetTokens(anchor.Children[0]);
+                                var (netOriginal, netDisplay) = ctx.Line.GetTokens(anchor.Children[1]);
 
                                 devOriginal.TryConsume().TryStyle(Theme.Default.Device);
                                 devDisplay.TryConsume().TryStyle(Theme.Default.Device);

@@ -72,10 +72,24 @@ namespace IC10_Extender
             }
         }
 
+        // LogSource() reaches into BepInEx/Unity and throws outside the game player. Log() invokes
+        // it as an argument, outside TryLog's try, so swallow here to let the chain fall back.
+        private ILogger TryResolveSource()
+        {
+            try
+            {
+                return LogSource();
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
         public void Log(string message, LogLevel messageLevel)
         {
             if(
-                TryLog(LogSource(), message, messageLevel)
+                TryLog(TryResolveSource(), message, messageLevel)
                 || TryLog(Unity, message, messageLevel)
                 || TryLog(Console, message, messageLevel))
             {

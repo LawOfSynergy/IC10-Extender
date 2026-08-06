@@ -14,29 +14,29 @@ namespace IC10_Extender.Highlight
             new Dictionary<string, Style>()
             {
                 // data types
-                { nameof(String), new Style(default, key:nameof(String), foreground:"white") },
-                { nameof(Number), new Style(default, key:nameof(Number), foreground:"#20B2AA") },
-                { nameof(Enum), new Style(default, key:nameof(Enum), foreground:"orange") },
+                { nameof(String), new Style(nameof(String), null, "white") },
+                { nameof(Number), new Style(nameof(Number), null, "#20B2AA") },
+                { nameof(Enum), new Style(nameof(Enum), null, "orange") },
 
                 // drcode parts
-                { nameof(Device), new Style(default, key:nameof(Device), foreground:"green") },
-                { nameof(Network), new Style(default, key:nameof(Network), foreground:"#00FFEC") },
-                { nameof(Register), new Style(default, key:nameof(Register), foreground:"#0080FFFF") },
+                { nameof(Device), new Style(nameof(Device), null, "green") },
+                { nameof(Network), new Style(nameof(Network), null, "#00FFEC") },
+                { nameof(Register), new Style(nameof(Register), null, "#0080FFFF") },
 
                 // structural
-                { nameof(Macro), new Style(default, key:nameof(Macro), foreground:"#A0A0A0") },
-                { nameof(OpCode), new Style(default, key:nameof(OpCode), foreground:"yellow") },
-                { nameof(DeprecatedOpCode), new Style(default, key:nameof(DeprecatedOpCode), foreground:"yellow", strikeThrough:true) },
-                { nameof(Jump), new Style(default, key:nameof(Jump), foreground:"purple") },
+                { nameof(Macro), new Style(nameof(Macro), null, "#A0A0A0") },
+                { nameof(OpCode), new Style(nameof(OpCode), null, "yellow") },
+                { nameof(DeprecatedOpCode), new Style(nameof(DeprecatedOpCode), null, "yellow", strikeThrough:true) },
+                { nameof(Jump), new Style(nameof(Jump), null, "purple") },
 
-                // error 
-                { nameof(Error), new Style(default, key:nameof(Error), foreground:"red") },
+                // error
+                { nameof(Error), new Style(nameof(Error), null, "red") },
 
                 // general text
-                { nameof(Help), new Style(default, key:nameof(Help), foreground:"#808080") },
-                { nameof(Comment), new Style(default, key:nameof(Comment), foreground:"#585858FF") },
-                { nameof(Description), new Style(default, key:nameof(Description), foreground:"grey") },
-                { nameof(Example), new Style(default, key:nameof(Example), foreground:"#585858FF", italic:true) },
+                { nameof(Help), new Style(nameof(Help), null, "#808080") },
+                { nameof(Comment), new Style(nameof(Comment), null, "#585858FF") },
+                { nameof(Description), new Style(nameof(Description), null, "grey") },
+                { nameof(Example), new Style(nameof(Example), null, "#585858FF", italic:true) },
             }
         );
 
@@ -149,6 +149,12 @@ namespace IC10_Extender.Highlight
             get {
                 if (!styles.TryGetValue(other.Key, out Style result))
                 {
+                    if (other.FallbackKey == null)
+                        throw new KeyNotFoundException(
+                            $"Style \"{other.Key}\" declares no fallback key, marking it a root key, but this theme " +
+                            $"does not define it. Root keys are required in every theme; all other keys must declare " +
+                            $"a fallback key (repeating the key itself is valid).");
+
                     if (!styles.TryGetValue(other.FallbackKey, out result))
                     {
                         return other;

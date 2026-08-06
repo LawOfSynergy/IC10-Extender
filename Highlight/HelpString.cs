@@ -303,9 +303,13 @@ namespace IC10_Extender.Highlight
                 }
             }
 
+            // Non-root key, so it must declare a fallback. It repeats the key so that both lookups
+            // miss and canonicalisation returns identity, preserving the authored vanilla colours.
+            var parsedKey = string.Join("-", keyParts);
+
             return new Style(
-                key: string.Join("-", keyParts),
-                fallbackKey: null,
+                key: parsedKey,
+                fallbackKey: parsedKey,
                 foreground: foreground,
                 link: link,
                 bold: bold,

@@ -1,5 +1,4 @@
 ﻿using System;
-using Open.Nat;
 
 namespace IC10_Extender.Highlight
 {
@@ -7,6 +6,13 @@ namespace IC10_Extender.Highlight
     {
         //keys for performing a lookup against a new theme when re-theming
         public readonly string Key;
+
+        /// <summary>
+        /// A null FallbackKey declares this a root key. Root keys are the mandatory minimum every
+        /// theme must define, so a lookup by <see cref="Key"/> is guaranteed to resolve. Every other
+        /// key must declare a fallback. Repeating <see cref="Key"/> is valid, and yields identity
+        /// when neither is defined, which is how off-theme styles survive canonicalisation.
+        /// </summary>
         public readonly string FallbackKey;
 
         //styling info
